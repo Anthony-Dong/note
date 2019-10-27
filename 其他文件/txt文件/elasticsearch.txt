@@ -1,0 +1,294 @@
+
+1、创建索引库 配置索引库属性
+	/Indices(索引)
+		settings 
+			分片（shard）：数据拆分后的各个部分
+			副本（replica）：每个分片的复制
+	PUT /tyut
+	{
+	"settings": {
+		"number_of_shards": 2
+		, "number_of_replicas": 2
+	}
+	}
+2、获取索引库
+	GET /tyut
+3、删除索引库
+	DELETE /tyut
+4、创建索引库中的表以及对应的  索引库（indices）/_mapping/类型名称(表名)
+	_mapping 是配置 字段（field）的数据类型、属性、是否索引、是否存储等特性
+	properties 
+		字段（Field） 每个字段对应的是 表中的column
+			type 是 数据类型 
+			index 是 指是否索引
+			
+		PUT /heima/_mapping/goods
+		{
+		  "properties": {
+			"title":{
+			  "type": "text",
+			  "analyzer": "ik_max_word"
+			},
+			"image":{
+			  "type": "keyword",
+			"index": false
+			},
+			"price":{
+			  "type": "float"
+			}
+		  }
+		}	
+5、向索引库中添加数据’
+	
+	POST /heima/goods/1（id）
+{
+    "title":"小米手机",
+    "images":"http://image.leyou.com/12479122.jpg",
+    "price":2699.00
+}
+6、向表中添加数据  也可以添加 没定义的数据 他会自动生成对应的属性；并备份
+
+POST /heima/goods/1
+{
+    "title":"大米手机",
+    "images":"http://image.leyou.com/12479122.jpg",
+    "price":2899.00
+}
+7、全文检索  
+	GET /索引库/_search 
+		_search 过滤字段 只查询哪个字段   ["title","price"] 或单个 "title"  "includes": "title","excludes": "price"
+		query
+			match_all 查询所有的意思
+			match 条件查询 {
+				query 查询字段
+				operator 方式 and or
+			}
+			term 查询被用于精确值 匹配，这些精确值可能是数字、时间、布尔或者那些未分词的字符串  比如价格之类的 手机。。。
+			fuzzy	模糊查询  比如 apple 可以用appla
+			range 范围查询 gte>=  lte<='
+			bool  可以多条件检索  must  should mustnot 等 条件 里面包含多个检索条件  
+					其中可以用 filter  进行 过滤  不糊影响 score 
+			sort 排序 dest降序   asc升序
+			from 分页 起始页码
+			size 每页多少数据
+		GET /heima/_search
+		{
+		  "query": {
+			"match_all": {}
+		  }
+		}
+	
+		GET /heima/_search
+		{
+		  "query": {
+			"match": {
+			  "title": "大米手机"
+			}
+		  }
+		}
+		GET /heima/_search
+		{
+		  "query": {
+			"match": {
+			  "title": {
+				"query": "大米手机",
+				"operator": "and"
+			  }
+			}
+		  }
+		}
+		GET /heima/_search
+		{
+		
+		 "_source": "title", 
+		 
+		  "_source": ["title","price"] ,
+		  
+		  "_source":{
+			"includes": "title",
+			"excludes": "price"
+		  },
+		  "query": {
+			"term": {
+			  "title": {
+				"value": "手机"
+			  }
+			}
+		  }
+		}
+		
+		GET heima/_search
+		{
+		  "_source":{
+			"includes": "title"
+		  }
+		  , "query": {
+			"fuzzy": {
+			  "title": "appla"
+			}
+		  }  
+		}
+		
+		GET heima/_search
+		{
+		  "_source":{
+			"includes": ["title","price"]
+		  }
+		  , "query": {
+			"range": {
+			  "price": {
+				"gte": 2000,
+				"lte": 5000
+			  }
+			}
+		  }  
+		}
+		
+		GET heima/_search
+		{
+		  "_source":{
+			"includes": ["title","price"]
+		  }
+		  , "query": {
+			  "bool": {
+				"must": [
+				  {"match": {
+					"title": "apple"
+				  }},
+				  {"range": {
+					"price": {
+					  "gte": 2500,
+					  "lte": 3000
+					}
+				  }}
+			  ]
+			}
+		  }  
+	}
+		GET heima/_search
+		{
+		  "_source":{
+			"includes": ["title","price"]
+		  }
+		  , "query": {
+		   
+			  "bool": {
+				"must": [
+				  {"match": {
+					"title": "手机"
+				  }}
+			  ],
+			  "filter": {
+				"range": {
+				  "price": {
+					"gte": 2000,
+					"lte": 3000
+				  }
+				}
+			  }
+			}
+		  },
+		  "sort": [
+			{
+			  "price": {
+				"order": "desc"
+			  }
+			}
+		  ] ,
+		"from": 1,
+		 "size": 2		  
+		}
+8、聚合操作 aggregate
+		可以进行桶内操作 
+			aggs 指的聚合操作
+			popular_colors 定义的聚合名称
+			hits 查询结果 
+			buckets 桶
+			doc_count 这个桶中的文档数量
+			key 这个桶对应的color字段的值
+		GET /cars/_search
+		{
+			"size" : 10,
+			"aggs" : { 
+				"popular_colors" : { 
+					"terms" : { 
+					  "field" : "make"
+					},
+					"aggs": {
+					  "price_avg": {
+						"avg": {
+						  "field": "price"
+						}
+					  }
+					}
+				}
+			}
+		}
+		
+			{
+			  "took": 7,
+			  "timed_out": false,
+			  "_shards": {
+				"total": 1,
+				"successful": 1,
+				"skipped": 0,
+				"failed": 0
+			  },
+			  "hits": {
+				"total": 8,
+				"max_score": 0,
+				"hits": []
+			  },
+			  "aggregations": {
+				"popular_colors": {
+				  "doc_count_error_upper_bound": 0,
+				  "sum_other_doc_count": 0,
+				  "buckets": [
+					{
+					  "key": "honda",
+					  "doc_count": 3,
+					  "price_avg": {
+						"value": 16666.666666666668
+					  }
+					},
+					{
+					  "key": "ford",
+					  "doc_count": 2,
+					  "price_avg": {
+						"value": 27500
+					  }
+					},
+					{
+					  "key": "toyota",
+					  "doc_count": 2,
+					  "price_avg": {
+						"value": 13500
+					  }
+					},
+					{
+					  "key": "bmw",
+					  "doc_count": 1,
+					  "price_avg": {
+						"value": 80000
+					  }
+					}
+				  ]
+				}
+			  }
+			}
+		
+4、测试
+	最细分法
+	POST _analyze
+	{
+	"analyzer": "ik_max_word",
+	"text":     "我是中国人"
+	
+	最智能分法
+	POST _analyze
+	{
+	  "analyzer": "ik_smart",
+	  "text":     "我是中国人"
+	}
+
+

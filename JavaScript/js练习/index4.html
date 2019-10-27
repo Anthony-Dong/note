@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <!-- <script src="./js/prototype02.js"></script> -->
+    <script>
+        window.onload = function () {
+            var input = document.getElementById('name')
+            var title = document.getElementById('title')
+            Object.defineProperty(input, 'val', { //这里必须定义一个新的属性名称，不可以用value，否则会报错。
+                get: function () {
+                    return this.value;
+                },
+                set: function (val) {
+                    this.value = val;
+                    title.innerHTML = val;
+                }
+            });
+
+            Object.defineProperty(title, 'val', { //这里必须定义一个新的属性名称，不可以用value，否则会报错。
+                get: function () {
+                    return this.value;
+                },
+                set: function (val) {
+                    this.value = val;
+                    input.val = val;
+                }
+            });
+
+            input.oninput = function (e) {
+                input.val = this.value;
+            };
+        }
+    </script>
+</head>
+
+<body>
+
+    <h1 id="title"></h1>
+    <input type="text" id="name">
+
+    <button onclick="btn()">butt</button>
+
+    <script>
+        function btn() {
+            title.innerHTML = '11111'
+        }
+    </script>
+
+</body>
+
+</html>

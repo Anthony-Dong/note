@@ -1,0 +1,61 @@
+编译插件
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
+                    <compilerArguments>
+                        <bootclasspath>${JAVA_HOME}/jre/lib/rt.jar</bootclasspath>
+                    </compilerArguments>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+springboot 启动多项目样式
+找到 RunDashboard  搜索一哈   <component name="RunDashboard">  这里面添加一个 option
+<option name="configurationTypes">  
+    <set>  
+        <option value="SpringBootApplicationConfigurationType" />  
+    </set>  
+</option> 
+
+
+Detects duplicates in source code   可以设置取消重复代码提示
+
+类继承了Serializable接口之后，使用alt+enter快捷键自动创建序列化id 
+进入setting→inspections→serialization issues→选择图中的选项。serializable class without ‘serialVersionUID’ 
+
+
+template
+/**
+*ClassName:${NAME}   
+*Package:${PACKAGE_NAME}
+*Description:
+*
+*@date:${DATE} ${TIME}
+*@author: 574986060@qq.com
+*/
+
+
+jdbc:mysql://localhost:3306/ApolloPortalDB?useUnicode=true&characterEncoding=UTF-8&useSSL=false

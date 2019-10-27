@@ -1,0 +1,204 @@
+﻿DOM 文档对象模型
+	document.getElementById(id)
+	document.getElementsByClassName(class属性)
+	document.getElementsByName(name)
+	document.getElementsByTagName(标签)
+	
+	
+	function getId(id){
+		var idObj=document.getElementById(id)
+		return idObj;
+	}
+	
+	/////////////////////////
+	js类库：把常用的对象和方法进行封装
+	
+jquery
+	是什么？
+		一套跨浏览器的js库
+	有什么作用？
+		可以简化html和js之间的操作
+	使用jquery？
+		使用1.11版本
+		使用外联式导入对应的js文件即可
+	jquery语法：
+		jquery()或者$()
+	获取value值：
+		js：
+			js对象.value
+		jquery:
+			jquery对象.val()
+			
+	js对象和jquery对象的转换                         
+		js转换为jquery：
+			$(js对象)
+		jquery转换为js：
+			第一种方式：
+			  jquery对象[index]
+			第二种方式：
+			  jquery对象.get(index)
+	jquery页面加载成功事件：
+		js：
+			onload = function(){}
+		jquery:
+			$(document).ready(function(){})
+			
+			$(function(){})
+			
+	jquery事件绑定：
+		js方式：
+			1通过标签的事件属性进行绑定  
+			2.获取对象
+				对象.事件属性 = function(){
+					函数体
+				}
+		jquery方式：
+			获取jquery对象
+			jquery对象.事件方法(function(){
+				函数体
+			})
+	jquery事件：
+		submit()
+		clcik()
+		focus()
+		blur()
+		change()
+		
+		
+		
+	jquery效果：
+	
+		显示和隐藏：
+			show([毫秒值])  显示
+			hide([毫秒值])   隐藏
+			taggle([毫秒值])  切换
+		滑入和滑出：
+			slidedown([毫秒值])  滑入
+			slideup([毫秒值])    滑出
+			slideToggle([毫秒值]) 切换
+		淡出和淡出：
+			fadeIn([毫秒值])  淡入
+			fadeOut([毫秒值])  淡出
+			fadeToggle([毫秒值])  切换
+			fadeTo()
+			
+			
+	///////////////////////
+	案例一：重写弹出广告
+		需求：在页面加载成功后，经过4秒显示广告，广告展示2秒，隐藏广告  反复执行三次
+		步骤分析：
+			1.在页面加载成功后   定义一个周期性定时器   setInterVal(showAd,4000)
+			2.编写显示广告的函数
+				获取显示广告对象
+				通过show方法显示广告
+				
+				定义执行一次的定时器  setTimeOut(hideAd,2000)
+			3.完成隐藏广告的函数
+				获取显示广告的对象
+				通过hide方法隐藏广告即可
+	////////////////////////////			
+	jquery选择器：
+		基本选择器
+			id：  #
+			class：  .
+			标签：
+			*：
+			a,b,c
+		层次选择器：
+			a b   选择器a选择的区域里面所有为选择器b的后代元素
+			a>b   选择器a选择的区域里面所有为选择器b的子代元素
+			
+			a+b   选择器a选择器的区域后面第一个为选择器b的弟弟元素
+			a~b   选择器a选择器的区域后面所有的为选择器b的弟弟元素
+		基本过滤选择器：
+			:first  第一个
+			:last   最后一个
+			
+			:even   偶数
+			:odd    奇数
+			
+			:eq()   =index
+			:gt()   >index
+			:lt()   <index
+		内容过滤选择器：
+			:has(选择器)  
+		可见性过滤选择器:
+			:visibel   可见
+			:hidden    不可见
+		属性选择器：
+			[属性]
+			[属性=属性值]
+		表单选择器：
+			:input   只要是form的子标签  就会被选中
+			input    直选中标签为input的元素
+			
+	//////////////////////////////////
+	案例二：隔行换色
+	需求：奇数行一种颜色  偶数行一种颜色
+	
+	步骤分析：
+		1.确定事件   页面加载成功事件
+		2.筛选偶数行   为蓝色
+		3.筛选奇数行   为红色
+		
+		
+		
+	///////////////////////////////////////
+	jquery对样式的操作
+		jquery对象.css()
+			获取：
+				jquery对象.css("属性名")
+			赋值：
+				jquery对象.css("属性名","属性值")
+		对多个css属性的操作：
+			jquery对象.css({
+				"属性1"："属性值1",
+				"属性2"："属性值2"
+			})
+			
+		获取位置
+			var $obj=jquery对象.offset()
+				top
+				left
+				
+		获取宽和高
+			width()
+			height()
+			
+	jquery对属性的操作：
+		jquery对象.attr()
+			获取：
+				jquery对象.attr("属性名")
+			赋值：
+				jquery对象.attr("属性名","属性值")
+		对多个attr属性的操作：
+			jquery对象.attr({
+				"属性1"："属性值1",
+				"属性2"："属性值2"
+			})		
+		删除属性：
+			jquery对象.removeAttr("属性名");
+			
+		对class属性的操作：
+			增加
+				jquery对象.addClass("属性值");
+			删除：
+				jquery对象.removeClass("属性值");
+				
+	
+	/////////////////////////////
+	案例三：全选全不选
+	需求：使列表中复选框的选中状态和表头复选框选中状态保持一致
+	
+	步骤：
+		1.确定事件   click
+		2.获取表头复选框的选中状态
+		3.获取列表复选框对象
+		4.是列表复选框的选中状态和表头复选框选中状态保持一致
+		
+		
+		
+	///////////////////////////////
+	一般情况下推荐使用attr,attr使用起来有限制，如果attr在操作jquery属性的时候不好使，那么改用prop
+	
+

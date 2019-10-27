@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Document</title>
+  <script>
+    // let arr = ["a", { name: "shabi" }, "c"];
+    // let arr1 = [1, 5, 52, 3];
+    // console.log(arr.concat(arr1));
+    // let arr3 = arr1.sort((a, b) => {
+    //   return a - b;
+    // });
+
+    // console.log(arr3);
+
+    // let arr4 = arr3.slice(0, 2);
+    // console.log("arr4", arr4);
+    // arr1[arr]
+
+    // console.log(' arr3.indexOf("5") :', arr3.indexOf(5));
+
+    // let xhr = new XMLHttpRequest();
+    // xhr.open(
+    //   "GET",
+    //   "https://easy-mock.com/mock/5d5a9cddfc79a5287e5676ab/example_copy/mock",
+    //   true
+    // );
+
+    // xhr.responseType = "json";
+    // xhr.send();
+
+    // xhr.onload = e => {
+    //   console.log("request success");
+    // };
+    // xhr.onloadend = e => {
+    //   console.log("e :", e.currentTarget.response);
+    // };
+
+    // var res = null;
+
+    // function fun(data) {
+    //   res = data;
+    //   console.log("res :", res);
+    // }
+
+
+
+
+    let get = function (methons, url, handler) {
+      let xhr = new XMLHttpRequest();
+      xhr.open(
+        methons,
+        url,
+        true
+      );
+
+      var form = new FormData();
+      form.append('username', 'johndoe');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.responseType = "json";
+      xhr.send(form);
+
+      // xhr.onload = e => {};
+
+      xhr.onloadend = e => {
+        handler(e.currentTarget.response)
+      };
+
+
+    };
+
+    var aa = null
+    get('get', 'http://localhost:8080/test', (res) => {
+      console.log('resp :', res);
+      document.getElementById("app").innerHTML = res
+    })
+
+
+    var resp = null
+
+    var $ = {
+      get: function (url, handler) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(
+          "GET",
+          "https://easy-mock.com/mock/5d5a9cddfc79a5287e5676ab/example_copy/mock",
+          true
+        );
+
+        xhr.responseType = "json";
+        xhr.send();
+
+        xhr.onreadystatechange = function () {
+          if (this.readyState == 4) {
+            resp = this.response
+            handler.call(this.response, resp)
+          }
+        }
+      }
+    }
+
+    // $.get()
+
+    // function f() {
+    //   console.log('resp :', resp);
+    // }
+    // window.setTimeout(f, 1000)
+
+
+
+
+
+    $.get('111', (result) => {
+
+      console.log('this.result :', this);
+      console.log('result :', result);
+    })
+  </script>
+</head>
+
+<body>
+
+  <div id="app"></div>
+
+</body>
+
+</html>

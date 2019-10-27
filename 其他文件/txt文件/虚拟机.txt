@@ -1,0 +1,188 @@
+本地 host 地址  C:\Windows\System32\drivers\etc
+刷新dns缓存 ipconfig/flushdns
+
+
+6a3c82ed054c709afc09c8b9783ea3bfe5855a9d
+
+
+ps aux
+
+nohup java -jar blogs-websocket-0.0.1-SNAPSHOT.jar >webs.txt &
+
+java -jar -server -Xms64m -Xmx64m -XX:CompressedClassSpaceSize=64m -XX:MetaspaceSize=64m -XX:MaxMetaspaceSize=64m -Duser.timezone=GMT+8
+
+
+1. mongodb 启动
+/usr/bin/mongod -f /etc/mongod.conf
+
+
+sqlplus sys/sys@localhost:1521/orcl
+sqlplus sys/sys@orcl as sysdba
+
+2. mysql
+
+service mysqld start
+service mysqld stop
+service mysqld restart
+
+mysqld 是服务(类似于 windows的进程) ,mysql是客户端,这个要记住,
+
+
+1. 防火墙
+service iptables stop //关闭防火墙
+chkconfig iptables off  //关闭开机自启
+
+useradd  user
+passwd  user
+
+vim /etc/sudoers
+user ALL=(ALL)  NOPASSWD:ALL
+
+1、nginx 
+nginx  启动 
+nginx -s stop 关闭 
+nginx -s reload 重启  
+2、启动elasticsearch
+登录user 
+cd /home/user/elasticsearch/bin/
+./elasticsearch
+
+3、查看进程
+ps -ef | grep nginx
+ps -ef | grep fdfs
+lsof -i  : 6379
+
+4、关闭防火墙
+iptables -F
+
+5、rbmq
+linux
+systemctl start rabbitmq-server
+
+
+7、
+
+安装位置在  /usr/local/bin
+redis-server /home/user/redis/redis-4.0.9/redis.conf
+redis-cli -h 192.168.58.129 -p 6379
+
+
+6命令
+touch +文件名全程   创建文件
+cd  打开指定文件夹下目录 change directory
+mkdir 创建目录 make directory
+rm  移除
+pwd  print work directory  打印文件路径
+
+
+windows
+cd D:\软件\rabbitmq_server-3.7.16\sbin
+rabbitmq-plugins enable rabbitmq_management
+
+9、springboot
+-Dserver.port=8088
+
+
+6、虚拟机 的 ip
+192.168.58.129
+7、更改 ip地址
+cd /etc/sysconfig/network-scripts/
+vim ifcfg-eno16777736
+
+其中 gateway  不能和本地ipv4冲突
+IPADDR=192.168.58.129
+NETMASK=255.255.255.0
+GATEWAY=192.168.58.2
+DNS1=192.168.1.1
+
+
+5、重启服务器
+service network restart
+
+chkconfig iptables off
+service iptables stop
+
+
+8、查看 fdfs
+ps -ef | grep fdfs
+service fdfs_trackerd start
+chkconfig fdfs_trackerd on
+
+
+9、关闭图形界面
+
+1，命令模式
+systemctl set-default multi-user.target
+
+2,图形模式
+systemctl set-default graphical.target 
+
+编辑 
+/etc/inittab 
+将 
+id:5:initdefault: 
+修改为 
+id:3:initdefault: 
+下次重启就不启动X Window了
+
+		upstream www.tests.com{
+			server 127.0.0.1:8012 weight=2;
+			server 127.0.0.1:8011 weight=1;
+			server 127.0.0.1:8013 weight=1;
+		}
+
+
+
+
+
+cd /home/user/elasticsearch-5.6.8/bin/
+
+
+JAVA_HOME=/home/user/jdk1.8.0_211       
+ CLASSPATH=$JAVA_HOME/lib/
+ PATH=$PATH:$JAVA_HOME/bin
+ export PATH JAVA_HOME CLASSPATH
+
+rpm -e --nodeps jdk-1.7.0.51--fcs.x86_64
+
+
+
+8、nginx 的安装目录 /opt/nginx/html
+/opt/nginx
+
+	server {
+        	listen       80;
+        	server_name  manage.leyou.com;
+
+        	proxy_set_header X-Forwarded-Host $host;
+        	proxy_set_header X-Forwarded-Server $host;
+       	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        	location / {
+			proxy_pass http://192.168.58.2:9001;
+			proxy_connect_timeout 600;
+			proxy_read_timeout 600;
+        	}
+    	}
+	server {
+        	listen       80;
+        	server_name  api.leyou.com;
+
+        	proxy_set_header X-Forwarded-Host $host;
+       	 	proxy_set_header X-Forwarded-Server $host;
+        	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        	location / {
+			proxy_pass http://www.baidu.com;
+			proxy_connect_timeout 600;
+			proxy_read_timeout 600;
+        	   }
+    	}
+
+
+trickerd
+
+
+
+
+
