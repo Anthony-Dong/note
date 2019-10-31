@@ -260,6 +260,35 @@ public class DeferredresultSpringmvcApplication {
 
 
 
+这里的task 线程是谁呢 ? 
+
+ThreadPoolTaskExecutor  是 springboot自带的默认的 异步线程池 , 我们可以自己设置 
+
+```java
+@Configuration
+public class AsyncPoolConfig {
+
+    @Bean
+    public ThreadPoolTaskExecutor asyncThreadPoolTaskExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(20);
+        executor.setMaxPoolSize(200);
+        executor.setQueueCapacity(25);
+        executor.setKeepAliveSeconds(200);
+        executor.setThreadNamePrefix("asyncThread");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
+        executor.initialize();
+        return executor;
+    }
+}
+```
+
+
+
 
 
 ### // 复杂的呢  

@@ -30,7 +30,299 @@
 
 
 
-## 2. Lock -- ReentrantLock
+## 2. Lock -- ReentrantLock 可重入锁
+
+### 简单使用
+
+```java
+public class TestSimpleUserLock {
+    private static final Lock LOCK = new ReentrantLock();
+	
+    private static ExecutorService service = Executors.newFixedThreadPool(10);
+
+    public static void main(String[] args) {
+        //这种写法是 lambda 表达式
+        service.execute(()->{
+            TestSimpleUserLock.doLock();
+        });
+        //这种写法是 方法引用
+        service.execute(TestSimpleUserLock::doLock);
+        service.execute(TestSimpleUserLock::doLock);
+
+
+        service.execute(TestSimpleUserLock::doUNLock);
+        service.execute(TestSimpleUserLock::doUNLock);
+        service.execute(TestSimpleUserLock::doUNLock);
+
+        service.shutdown();
+
+    }
+	
+    //加锁操作
+    static void doLock() {
+        // 加锁
+        LOCK.lock();
+        try {
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("当前线程 : " + Thread.currentThread().getName());
+        } catch (InterruptedException e) {
+            System.out.println("======sleep interrupted======" + Thread.currentThread().getName());
+        } finally {
+            // 释放锁
+            LOCK.unlock();
+        }
+    }
+
+    // 不加锁操作
+    static void doUNLock() {
+
+        try {
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("当前线程 : " + Thread.currentThread().getName());
+        } catch (InterruptedException e) {
+            System.out.println("======sleep interrupted======" + Thread.currentThread().getName());
+        }
+    }
+}
+```
+
+**输出结果 : **
+
+```java
+当前线程 : pool-1-thread-1
+当前线程 : pool-1-thread-4
+当前线程 : pool-1-thread-5
+当前线程 : pool-1-thread-6
+当前线程 : pool-1-thread-2
+当前线程 : pool-1-thread-3
+```
+
+​		很显然  加锁的是顺序执行 ,不加锁的是异步执行 , 1 结束了 456没有加锁的任务都直接结束了,我们发现 456线程并没有执行的时候被锁住
+
+
+
+### 加锁的几种方式对比
+
+1. `LOCK.lock();`方法 , 其实就是去获取一个可用的锁, 上面代码就是lock() 代码的效果
+
+```java
+我们不难发现  lock , 当线程执行lock() 方法时, 只能有一个线程执行.
+
+1. Acquires the lock if it is not held by another thread and returns immediately, setting the lock hold count to one.
+2. If the current thread already holds the lock then the hold count is incremented by one and the method returns immediately.
+3. If the lock is held by another thread then the current thread becomes disabled for thread scheduling purposes and lies dormant until the lock has been acquired, at which time the lock hold count is set to one.    
+
+
+源码中 lock 方法 有三种情况
+
+1. 如果需求的锁没有被其他线程所持有,那么久立刻返回并且设置持有锁的数量为1
+2. 如果当前线程已经持有锁,那么持有的数量加一,然后返回,  就是一个多次执行 lock 方法() 
+3. 如果这个锁 被其他线程持有,那么当前线程则不能调度线程,然后休眠,止到有可用的锁,同时将锁的持有数量设置为1
+
+所以呢,只能有一个线程获取锁,达到同步执行的效果
+```
+
+
+
+2. 我们上面发现一个问题就是 如果我的线程被中断了会如何 ? 加锁过程被中断了是否执行? ------ 这就引出了我们的 `LOCK.lockInterruptibly();`  我们看看下面这段代码对比一下
+
+```java
+public class TestSimpleUserLock {
+    private static final Lock LOCK = new ReentrantLock();
+
+    private static ExecutorService service = Executors.newFixedThreadPool(10);
+
+
+
+    public static void main(String[] args) {
+
+        // 执行第一段
+//        service.execute(TestSimpleUserLock::doInterruptibleLock);
+//        service.execute(TestSimpleUserLock::doInterruptibleLock);
+//        service.execute(TestSimpleUserLock::doInterruptibleLock);
+		 // 执行第二段
+        service.execute(TestSimpleUserLock::doLock);
+        service.execute(TestSimpleUserLock::doLock);
+        service.execute(TestSimpleUserLock::doLock);
+        
+        service.shutdownNow();
+
+    }
+
+    static void doLock() {
+        LOCK.lock();
+        try {
+            System.out.println("我执行了 : "+Thread.currentThread().getName());
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("当前线程 : " + Thread.currentThread().getName());
+        } catch (InterruptedException e) {
+            throw new RuntimeException("sleep InterruptedException in "+Thread.currentThread().getName());
+        } finally {
+            LOCK.unlock();
+        }
+    }
+
+
+    static void doInterruptibleLock() {
+        try {
+            LOCK.lockInterruptibly();
+        } catch (InterruptedException e) {
+            throw new RuntimeException("InterruptedException in "+Thread.currentThread().getName());
+        }
+        try {
+            System.out.println("我执行了 : "+Thread.currentThread().getName());
+            TimeUnit.SECONDS.sleep(1);
+            System.out.println("当前线程 : " + Thread.currentThread().getName());
+        } catch (InterruptedException e) {
+            throw new RuntimeException("sleep Exception in "+Thread.currentThread().getName());
+        } finally {
+            LOCK.unlock();
+        }
+    }
+}
+
+```
+
+我们知道 `service.shutdownNow();` 是强制中断线程的,所以可以模拟线程中断情况
+
+执行我们的 `doInterruptibleLock `方法时 输出结果 : 
+
+```java
+我执行了 : pool-1-thread-1
+Exception in thread "pool-1-thread-2" Exception in thread "pool-1-thread-1" Exception in thread "pool-1-thread-3" 
+    // 线程一
+java.lang.RuntimeException: sleep Exception in pool-1-thread-1
+	at com.lock.TestSimpleUserLock.doInterruptibleLock(TestSimpleUserLock.java:64)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+    // 线程二
+java.lang.RuntimeException: InterruptedException in pool-1-thread-2
+	at com.lock.TestSimpleUserLock.doInterruptibleLock(TestSimpleUserLock.java:57)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+    // 线程三
+java.lang.RuntimeException: InterruptedException in pool-1-thread-3
+	at com.lock.TestSimpleUserLock.doInterruptibleLock(TestSimpleUserLock.java:57)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+```
+
+我们发现线程一执行了输出语句,其他两个个都被打断了, 直接在获取锁那里就抛出去了
+
+
+
+那么当我们改成执行`doLock` 方法时 , 结果是什么呢? 
+
+```java
+我执行了 : pool-1-thread-1
+我执行了 : pool-1-thread-3
+ 我执行了 : pool-1-thread-2    
+Exception in thread "pool-1-thread-3"Exception in thread "pool-1-thread-1"  Exception in thread "pool-1-thread-2" 
+    // 线程三
+java.lang.RuntimeException: sleep InterruptedException in pool-1-thread-3
+	at com.lock.TestSimpleUserLock.doLock(TestSimpleUserLock.java:46)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+    // 线程二
+java.lang.RuntimeException: sleep InterruptedException in pool-1-thread-2
+	at com.lock.TestSimpleUserLock.doLock(TestSimpleUserLock.java:46)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+    // 线程一
+java.lang.RuntimeException: sleep InterruptedException in pool-1-thread-1
+	at com.lock.TestSimpleUserLock.doLock(TestSimpleUserLock.java:46)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+```
+
+
+
+我们发现他们三个都执行了输出语句,只是 sleep 方法被打断了 ,所以 对于加锁我们可以使用 `LOCK.lockInterruptibly();`  这样子可以更加安全的使用锁 , 如果获取锁的时候被打断了,那么我们是不是必须不让他执行呢 ? 
+
+
+
+3. `LOCK.tryLock()` 方法 ,返回一个 `Bollean`值,我们看看官方说法 
+
+```java
+Acquires the lock only if it is free at the time of invocation. 只有在一把锁处于空闲的时候才能调用
+
+Acquires the lock if it is available and returns immediately with the value {@code true}.If the lock is not available then this method will return immediately with the value {@code false}.
+
+如果这把锁可以用立马返回true , 不能用立马返回false ,    
+
+官方提供的通用写法
+* <p>A typical usage idiom for this method would be:
+     *  <pre> {@code
+     * Lock lock = ...;
+     * if (lock.tryLock()) {
+     *   try {
+     *     // manipulate protected state
+     *   } finally {
+     *     lock.unlock();
+     *   }
+     * } else {
+     *   // perform alternative actions
+     * }}</pre>
+```
+
+
+
+所以我们照着官方的意思 去使用
+
+```java
+public class TestSimpleUserLock {
+    private static final Lock LOCK = new ReentrantLock();
+
+    private static ExecutorService service = Executors.newFixedThreadPool(10);
+
+    public static void main(String[] args) {
+        service.execute(TestSimpleUserLock::doTryLock);
+        service.execute(TestSimpleUserLock::doTryLock);
+        service.execute(TestSimpleUserLock::doTryLock);
+    }
+
+    static void doTryLock() {
+        if (LOCK.tryLock()) {
+            try {
+                System.out.println("我执行了 : " + Thread.currentThread().getName());
+                TimeUnit.SECONDS.sleep(2);
+                System.out.println("当前线程 : " + Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                LOCK.unlock();
+            }
+
+        } else {
+            System.out.println("没拿到锁,我很慌, "+Thread.currentThread().getName());
+        }
+    }
+}
+```
+
+**输出结果:** 
+
+```java
+我执行了 : pool-1-thread-1
+没拿到锁,我很慌, pool-1-thread-2
+没拿到锁,我很慌, pool-1-thread-3
+当前线程 : pool-1-thread-1
+```
+
+结果表明 , 获取锁的人执行 ,没获取锁的人直接去浪了,这么做可以有个好处就是判断是否获取锁,这样子其实我们可以进行递归操作,自旋锁,但是发现会出现栈溢出 `java.lang.StackOverflowError` ,这个 溢出是啥呢 ?
+
+`Thrown when a stack overflow occurs because an application recurses too deeply.`  `recurses `是递归的意思,所以就是因为当前应用递归太深导致栈溢出.
+
+
+
+4. `LOCK.tryLock(1, TimeUnit.SECONDS)`  就是上面的方法加了一个超时时间.
 
 
 

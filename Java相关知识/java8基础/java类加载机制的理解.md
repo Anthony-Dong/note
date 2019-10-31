@@ -437,3 +437,13 @@ public class TestStaticFinal {
 
 
 
+##  idea 如何查看 class字节码
+
+![](https://tyut.oss-cn-beijing.aliyuncs.com/image/2019-10-29/66c4b58f-c36a-4d4b-8b87-c84fb293f95d.jpg)
+
+
+
+然后使用
+
+![](https://tyut.oss-cn-beijing.aliyuncs.com/image/2019-10-29/99f5bced-afe9-43f6-a785-0757162506c9.png)
+

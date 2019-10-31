@@ -1,5 +1,13 @@
 # lombox
 
+## 介绍
+
+ [官网地址 ](https://projectlombok.org/)  :  https://projectlombok.org/
+
+> 	    Project Lombok is a java library that automatically plugs into your editor and build tools, spicing up your java. Never write another getter or equals method again, with one annotation your class has a fully featured builder, Automate your logging variables, and much more.
+
+
+
 ## @Accessors
 
 Accessor的中文含义是存取器，@Accessors用于配置getter和setter方法的生成结果，下面介绍三个属性
@@ -87,8 +95,6 @@ public class Orders {
 
 
 
-
-
 ```java
 public class Example<T> {
         private T foo;
@@ -132,4 +138,36 @@ public class Example<T> {
 ```
 
 
+
+## @NonNull
+
+> ​	If put on a parameter, lombok will insert a null-check at the start of the method / constructor's body, throwing a NullPointerException with the parameter's name as message. If put on a field, any generated method assigning a value to this field will also produce these nullchecks.
+>
+> ​	如果在一个参数字段上加,lombox会在这个方法或者构造函数的开头插入一个null-chec , 抛出一个 带有改参数字段名字的NullPointerException 消息.  如果在一个字段上加(属性上) ,任何为该字段赋值的生成方法也将产生这些nullcheck。
+>
+> ​	**这里需要注意的一点是  如果用在字段上 , 必须使用 lombox 提供的 get,set方法,**
+
+
+
+```java
+public class ValidatedService {
+
+    public void test(@NonNull TestBean testBean) {
+
+    }
+
+    public static void main(String[] args) {
+        ValidatedService service = new ValidatedService();
+        service.test(null);
+    }
+}
+```
+
+结果 : 
+
+```java
+Exception in thread "main" java.lang.NullPointerException: testBean
+	at com.spring.springvalidator.service.ValidatedService.test(ValidatedService.java:20)
+	at com.spring.springvalidator.service.ValidatedService.main(ValidatedService.java:30)
+```
 
