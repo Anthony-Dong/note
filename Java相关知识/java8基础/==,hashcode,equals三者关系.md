@@ -2,8 +2,9 @@
 
 ## 1.  "=="
 
-> 	1. 8种基本数据类型 , 直接比较值
->  	2. 引用对象 :  比较的是对象的内存地址 ,
+> 	1 . 8种基本数据类型 , 直接比较值
+>
+> 	2 .  引用对象 :  比较的是对象的内存地址 ,
 
 
 
@@ -49,8 +50,6 @@
 
 所以默认实现的 `hashcode()` 返回的int数值,其实就是内存地址转换过来的.
 
-
-
 ## 3. equals()
 
 ```java
@@ -62,8 +61,6 @@ public boolean equals(Object obj) {
 
 
 > ​	object 源码中对equals方法的实现 ,发现它只是做了两个对象的 '==' 比较
-
-
 
 
 
@@ -101,3 +98,38 @@ System.out.println(str1 == str2.intern());   //true
 ## 5.  所以对于这方面的问题纠结吗?
 
 那就继续思考吧.
+
+
+
+
+
+## 6. java 拆箱装箱
+
+> ​	**装箱就是自动将基本数据类型转换为包装器类型；拆箱就是自动将包装器类型转换为基本数据类型。**
+
+
+
+### 1. 自动装箱   包装类型<-基本类型  , 左传值
+
+`Integer x = 1;` 这个语句其实执行的是 `Integer.valueOf(1)` 的方法; 其他类型基本上一致的是,比如`Long.valueOf(1111);`
+
+```java
+Integer x = 1;
+
+1: invokestatic  #2            // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+```
+
+### 2. 自动拆箱   基本类型=包装类型
+
+`int y=x;` 其实执行的是 `x.intValue()` 方法 ; 其他类型基本上一致的是,比如Boolean值 ,就是 b.booleanValue();
+
+```java
+Integer x = 1;
+int y = x;
+
+ 1: invokestatic  #2                  // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+ 4: astore_1
+ 5: aload_1
+ 6: invokevirtual #3                  // Method java/lang/Integer.intValue:()I
+```
+

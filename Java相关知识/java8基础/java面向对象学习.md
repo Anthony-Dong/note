@@ -1,6 +1,6 @@
 # java面向对象学习
 
-## Extends
+## 1. 继承
 
 ### constructor
 
@@ -134,7 +134,7 @@ wheatMilK.process() = Parent
 
 
 
-## private & 空 & protected & public 
+## 2. private & 空 & protected & public 
 
 ​	  当我们不写作用域修饰词时,此时他默认是friendly,只可以被当前类和同一个package类访问  ,就算是子类(不是同一个包下的) 也无法访问(此时需要修改为protected,可以让子类访问) ,
 
@@ -148,7 +148,7 @@ wheatMilK.process() = Parent
 
 
 
-## transient
+## 3. transient
 
 1）一旦变量被transient修饰，变量将不再是对象持久化的一部分，该变量内容在序列化后无法获得访问。
 

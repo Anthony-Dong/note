@@ -112,6 +112,7 @@ public class JavaExecuteOrder {
     static {
         System.out.println("静态代码块");
     }
+    
 
     {
         System.out.println("非静态代码块1");
@@ -129,6 +130,7 @@ public class JavaExecuteOrder {
         new JavaExecuteOrder();
     }
 
+    
 }
 
 ```
@@ -434,6 +436,47 @@ public class TestStaticFinal {
 
 
 我们发现在上面  确实只有一个静态代码块 ,在里面 ,所有被static修饰的 全部包括在里面  而且非静态代码块也是包含在对象里 . 当你看到我反编译的源码的时候你瞬间理解了上面的为什么了`谁属于谁 `
+
+
+
+## 实例四
+
+```java
+public class TestConst {
+
+    public static void main(String[] args) {
+        new B(new A());
+    }
+
+}
+
+class A {
+
+    public A() {
+        System.out.println("执行一次");
+    }
+}
+
+class B {
+
+    private A a = new A();
+
+    public B(A a) {
+        this.a = a;
+    }
+}
+```
+
+输出 
+
+```java
+执行一次
+执行一次
+```
+
+所以不要给成员变量随便赋值 , 
+
+
 
 
 

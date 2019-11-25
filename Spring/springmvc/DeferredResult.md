@@ -262,7 +262,7 @@ public class DeferredresultSpringmvcApplication {
 
 这里的task 线程是谁呢 ? 
 
-ThreadPoolTaskExecutor  是 springboot自带的默认的 异步线程池 , 我们可以自己设置 
+**ThreadPoolTaskExecutor**  是 springboot自带的默认的 异步线程池 , 我们可以自己设置 
 
 ```java
 @Configuration

@@ -271,12 +271,6 @@ String json = JSON.toJSONString(build, new MySerializeFilter());
 
 ## ParseProcess  定制反序列
 
-
-
-
-
-
-
 Spring-boot 中使用 fastjson  作为 序列化使用
 
 ```java

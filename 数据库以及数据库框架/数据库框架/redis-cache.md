@@ -83,8 +83,6 @@ public class IOrderService implements OrderService{
     public Orders insertOrdersByid(Orders orders) {
         int insert = orderMapper.insert(orders);
 
-        
-
         if (insert != 1) {
             throw new RuntimeException("error result ");
         }
@@ -108,6 +106,94 @@ public class IOrderService implements OrderService{
 | result        | 执行上下文 | 方法执行后的返回值（仅当方法执行后的判断有效，如 unless cacheEvict的beforeInvocation=false） | `#result`                  |
 
 
+
+
+
+
+
+## spring-boot 开启
+
+```java
+@Configuration
+public class RedisConfig extends CachingConfigurerSupport {
+
+
+
+/*  // 自定义缓存key生成策略
+    @Bean
+    public KeyGenerator keyGenerator() {
+        return new KeyGenerator() {
+            @Override
+            public Object generate(Object target, java.lang.reflect.Method method, Object... params) {
+                StringBuffer sb = new StringBuffer();
+                sb.append(target.getClass().getName());
+                sb.append(method.getName());
+                for (Object obj : params) {
+                    sb.append(obj.toString());
+                }
+                return sb.toString();
+            }
+        };
+    }*/
+
+
+    //  可以使用 复写
+    // 缓存管理器
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
+
+        //初始化一个RedisCacheWriter
+        RedisCacheWriter redisCacheWriter = RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory);
+
+        //设置CacheManager的值序列化方式为json序列化
+        RedisSerializer<Object> jsonSerializer = new GenericFastJsonRedisSerializer();
+
+        RedisSerializationContext.SerializationPair<Object> pair = RedisSerializationContext.SerializationPair
+                .fromSerializer(jsonSerializer);
+
+        RedisCacheConfiguration defaultCacheConfig=RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(pair);
+
+        //设置默认超过期时间是30秒
+        defaultCacheConfig.entryTtl(Duration.ofSeconds(100));
+        //初始化RedisCacheManager
+        return new RedisCacheManager(redisCacheWriter, defaultCacheConfig);
+    }
+
+
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+
+
+        // 设置 config
+        redisTemplate.setConnectionFactory(factory);
+
+
+        GenericFastJsonRedisSerializer genericFastJsonRedisSerializer = new GenericFastJsonRedisSerializer();
+        // 设置 value的序列化方式
+        redisTemplate.setValueSerializer(genericFastJsonRedisSerializer);
+
+        // 设置 key 的序列化方式
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+
+
+        // 设置 value的序列化方式
+        redisTemplate.setHashKeySerializer(new StringRedisSerializer());
+
+        // 设置 key 的序列化方式
+        redisTemplate.setHashValueSerializer(genericFastJsonRedisSerializer);
+
+
+        redisTemplate.afterPropertiesSet();
+        return redisTemplate;
+    }
+
+
+}
+```
 
 
 

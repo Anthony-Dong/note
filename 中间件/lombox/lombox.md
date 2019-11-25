@@ -4,15 +4,94 @@
 
  [官网地址 ](https://projectlombok.org/)  :  https://projectlombok.org/
 
-> 	    Project Lombok is a java library that automatically plugs into your editor and build tools, spicing up your java. Never write another getter or equals method again, with one annotation your class has a fully featured builder, Automate your logging variables, and much more.
+> 	    ​	Project Lombok is a java library that automatically plugs into your editor and build tools, spicing up your java. Never write another getter or equals method again, with one annotation your class has a fully featured builder, Automate your logging variables, and much more.
 
 
 
-## @Accessors
 
-Accessor的中文含义是存取器，@Accessors用于配置getter和setter方法的生成结果，下面介绍三个属性
 
-###### fluent
+## @Data
+
+
+
+```java
+@Data(staticConstructor = "of")
+public class Point {
+    final int x, y;
+}
+
+这个参数是一个静态方法,会生成
+
+public class Point {
+    final int x;
+    final int y;
+
+    private Point(final int x, final int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public static Point of(final int x, final int y) {
+        return new Point(x, y);
+    }
+
+    private Point() {
+        this.x = 0;
+        this.y = 0;
+    }
+
+    public int getX() {
+        return this.x;
+    }
+
+    public int getY() {
+        return this.y;
+    }
+
+    public boolean equals(final Object o) {
+        if (o == this) {
+            return true;
+        } else if (!(o instanceof Point)) {
+            return false;
+        } else {
+            Point other = (Point)o;
+            if (!other.canEqual(this)) {
+                return false;
+            } else if (this.getX() != other.getX()) {
+                return false;
+            } else {
+                return this.getY() == other.getY();
+            }
+        }
+    }
+
+    protected boolean canEqual(final Object other) {
+        return other instanceof Point;
+    }
+
+    public int hashCode() {
+        int PRIME = true;
+        int result = 1;
+        int result = result * 59 + this.getX();
+        result = result * 59 + this.getY();
+        return result;
+    }
+
+    public String toString() {
+        return "Point(x=" + this.getX() + ", y=" + this.getY() + ")";
+    }
+}
+```
+
+
+
+
+
+## @Accessors 
+
+@Accessors(存取器)用于配置getter和setter方法的生成结果，下面介绍三个属性 
+
+### fluent
 
 fluent的中文含义是流畅的，设置为true，则getter和setter方法的方法名都是基础属性名，且setter方法返回当前对象。如下
 
@@ -31,7 +110,7 @@ public class User {
 }
 ```
 
-###### chain
+### chain
 
 chain的中文含义是链式的，设置为true，则setter方法返回当前对象。如下
 
@@ -48,7 +127,7 @@ public class User {
 }
 ```
 
-###### prefix
+### prefix
 
 prefix的中文含义是前缀，用于生成getter和setter方法的字段名会忽视指定前缀（遵守驼峰命名）。如下
 

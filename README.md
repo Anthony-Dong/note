@@ -4,7 +4,9 @@
 
 ### [博客链接](https://anthony-dong.github.io/)   :  https://anthony-dong.github.io/
 
-### [Java 相关知识](./Java相关知识)
+### [Java 基础知识](./Java相关知识)
+
+### [Java 多线程](./Java并发)
 
 ###  [Spring学习](./Spring)
 
@@ -20,7 +22,7 @@
 
 ### [网络学习](./网络)
 
-[算法学习](./算法)
+### [算法学习](./算法)
 
 ### [JavaScript 学习](./JavaScript)
 

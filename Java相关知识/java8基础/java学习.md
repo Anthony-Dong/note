@@ -5,10 +5,10 @@
 	HelloWorld.class.getConstructor().newInstance();
 	Class.newInstance()只能反射无参的构造器；
 	Constructor.newInstance()可以反任何构造器；
-
+	
 	Class.newInstance()需要构造器可见(visible)；
 	Constructor.newInstance()可以反私有构造器；
-
+	
 	Class.newInstance()对于捕获或者未捕获的异常均由构造器抛出;
 	Constructor.newInstance()通常会把抛出的异常封装成InvocationTargetException抛出；
 
@@ -35,6 +35,3 @@
 	虽然ServiceLoader也算是使用的延迟加载，但是基本只能通过遍历全部获取，也就是接口的实现类全部加载并实例化一遍。如果你并不想用某些实现类，它也被加载并实例化了，这就造成了浪费。获取某个实现类的方式不够灵活，只能通过Iterator形式获取，不能根据某个参数来获取对应的实现类。
 	多个并发多线程使用ServiceLoader类的实例是不安全的。
 ##### 实现方式
-![image](image\Snipaste_2019-08-06_22-04-19.jpg)
-![image](image\Snipaste_2019-08-06_22-20-48.jpg)
-
