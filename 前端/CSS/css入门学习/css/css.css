@@ -1,0 +1,65 @@
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: hsl(0, 9%, 69%);
+}
+
+.yue code,
+.yue tt {
+    color: #2c64ab;
+}
+
+.main {
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.yue pre {
+    background: #282C34;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+    color: #7ec699;
+}
+
+.token.keyword,
+.token.property,
+.token.selector,
+.token.constant,
+.token.symbol,
+.token.builtin {
+    color: #f08d49;
+}
+
+.yue pre code,
+.yue pre tt {
+    color: #FFFFFF;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.token.attr-name,
+.token.attr-value,
+.token.string,
+.token.char,
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string,
+.token.variable,
+.token.inserted {
+    color: #cc99cd;
+}
+
+.token.tag,
+.token.boolean,
+.token.number,
+.token.deleted {
+    color: #4e99d2;
+}

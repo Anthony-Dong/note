@@ -5,10 +5,10 @@
 ​		动态 SQL 通常要做的事情是根据条件包含 where 子句的一部分。比如：注意一点, 你if 包含的字段传参时必须有,就算为null,不能用 java的多态,会报错例如
 
 ```java
-  List<Emp> selectEmpByNOAndSalary(@Param("deptno") Integer deptno, @Param("salary")Integer salary);
+List<Emp> selectEmpByNOAndSalary(@Param("deptno") Integer deptno, @Param("salary")Integer salary);
 
 // 这个会发生异常
-    List<Emp> selectEmpByNOAndSalary(@Param("deptno") Integer deptno);
+List<Emp> selectEmpByNOAndSalary(@Param("deptno") Integer deptno);
 ```
 
 

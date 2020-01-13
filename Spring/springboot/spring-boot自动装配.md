@@ -228,7 +228,7 @@ public class ConditionProfile implements Condition {
 
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-
+        
         Map<String, Object> attributes = metadata.getAnnotationAttributes(MyConditional.class.getName());
 
         Object key = attributes.get("key");

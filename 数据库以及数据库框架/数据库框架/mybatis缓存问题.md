@@ -1,17 +1,15 @@
-# My-Batis
+# My-Batis 存在的缓存问题
 
-## 目录
+> 此篇文章前半部分摘抄自[美团技术团队的一篇文章](https://tech.meituan.com) : https://tech.meituan.com
 
 - 一级缓存及其原理
 - 二级缓存及其原理
-- spring-boot,spring框架使用mybatis进行以及缓存二级缓存配置
+- Spring和Spring-Boot框架在使用MyBatis注意问题以及缓存二级缓存配置 , 以及存在的问题
 - 总结
 
+## 1. 一级缓存
 
-
-## 一级缓存
-
-### 一级缓存介绍
+### 1. 一级缓存介绍
 
 在应用运行过程中，我们有可能在一次数据库会话中，执行多次查询条件完全相同的SQL，MyBatis提供了一级缓存的方案优化这部分场景，如果是相同的SQL语句，会优先命中一级缓存，避免直接对数据库进行查询，提高性能。具体执行过程如下图所示。
 
@@ -21,7 +19,7 @@
 
 ![img](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2018a/d76ec5fe.jpg)
 
-### 一级缓存配置
+### 2. 一级缓存配置
 
 我们来看看如何使用MyBatis一级缓存。开发者只需在MyBatis的配置文件中，添加如下语句，就可以使用一级缓存。共有两个选项，`SESSION`或者`STATEMENT`，默认是`SESSION`级别，即在一个MyBatis会话中执行的所有语句，都会共享这一个缓存。一种是`STATEMENT`级别，可以理解为缓存只对当前执行的这一个`Statement`有效。
 
@@ -29,7 +27,7 @@
 <setting name="localCacheScope" value="SESSION"/>
 ```
 
-### 一级缓存实验
+### 3. 一级缓存实验
 
 接下来通过实验，了解MyBatis一级缓存的效果，每个单元测试后都请恢复被修改的数据。
 
@@ -113,7 +111,7 @@ public void testLocalCacheScope() throws Exception {
 
 `sqlSession2`更新了id为1的学生的姓名，从凯伦改为了小岑，但session1之后的查询中，id为1的学生的名字还是凯伦，出现了脏数据，也证明了之前的设想，一级缓存只在数据库会话内部共享。
 
-### 一级缓存工作流程&源码分析
+### 4. 一级缓存工作流程&源码分析
 
 那么，一级缓存的工作流程是怎样的呢？我们从源码层面来学习一下。
 
@@ -352,15 +350,15 @@ public int update(MappedStatement ms, Object parameter) throws SQLException {
 
 至此，一级缓存的工作流程讲解以及源码分析完毕。
 
-### 总结
+### 5. 总结
 
 1. MyBatis一级缓存的生命周期和SqlSession一致。
 2. MyBatis一级缓存内部设计简单，只是一个没有容量限定的HashMap，在缓存的功能性上有所欠缺。
 3. MyBatis的一级缓存最大范围是SqlSession内部，有多个SqlSession或者分布式的环境下，数据库写操作会引起脏数据，建议设定缓存级别为Statement。
 
-## 二级缓存
+## 2.  二级缓存
 
-### 二级缓存介绍
+### 1. 二级缓存介绍
 
 在上文中提到的一级缓存中，其最大的共享范围就是一个SqlSession内部，如果多个SqlSession之间需要共享缓存，则需要使用到二级缓存。开启二级缓存后，会使用CachingExecutor装饰Executor，进入一级缓存的查询流程前，先在CachingExecutor进行二级缓存的查询，具体的工作流程如下所示。
 
@@ -370,7 +368,7 @@ public int update(MappedStatement ms, Object parameter) throws SQLException {
 
 当开启缓存后，数据的查询执行的流程就是 二级缓存 -> 一级缓存 -> 数据库。
 
-### 二级缓存配置
+### 2. 二级缓存配置
 
 要正确的使用二级缓存，需完成如下配置的。
 
@@ -401,7 +399,7 @@ cache标签用于声明这个namespace使用二级缓存，并且可以自定义
 <cache-ref namespace="mapper.StudentMapper"/>
 ```
 
-### 二级缓存实验
+### 3 二级缓存实验
 
 接下来我们通过实验，了解MyBatis二级缓存在使用上的一些特点。
 
@@ -528,7 +526,7 @@ public void testCacheWithDiffererntNamespace() throws Exception {
 
 不过这样做的后果是，缓存的粒度变粗了，多个`Mapper namespace`下的所有操作都会对缓存使用造成影响。
 
-### 二级缓存源码分析
+### 4. 二级缓存源码分析
 
 MyBatis二级缓存的工作流程和前文提到的一级缓存类似，只是在一级缓存处理前，用`CachingExecutor`装饰了`BaseExecutor`的子类，在委托具体职责给`delegate`之前，实现了二级缓存的查询和写入功能，具体类关系图如下图所示。
 
@@ -691,7 +689,7 @@ private void flushCacheIfRequired(MappedStatement ms)
 
 
 
-## Spring或Spring-Boot 整合 mybatis实践
+## 3. Spring或Spring-Boot 整合 mybatis实践
 
 ### 1. 开启一级缓存
 
@@ -721,20 +719,14 @@ JDBC Connection [HikariProxyConnection@1828837853 wrapping com.mysql.jdbc.JDBC4C
 Closing non transactional SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@63c62bd5]
 ```
 
-
-
-### 开启二级缓存机制
+### 2. 开启二级缓存机制
 
 ```properties
 # 开启二级缓存
 mybatis.configuration.cache-enabled=true
 ```
 
-
-
-对于二级缓存 他的最小执行单元是 `namespace `,其实就是我们每一个 mapper  ,所以需要在`*mapper.xml`
-
-加入以下配置
+对于二级缓存 他的最小执行单元是 `namespace `,其实就是我们每一个 mapper  ,所以需要在`*mapper.xml`加入以下配置 , 同时`POJO`对象需要实现 `Serializable` 接口
 
 ```xml
 1. 开启
@@ -742,13 +734,6 @@ mybatis.configuration.cache-enabled=true
 
 2. 对某个方法使用不使用 cache时 ,可以设置为false , cache对 查询方法有效
 <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap" useCache="false">
-3. 属性有 :  就是配置一下cache大小之类的
-type CDATA #IMPLIED
-eviction CDATA #IMPLIED
-flushInterval CDATA #IMPLIED
-size CDATA #IMPLIED
-readOnly CDATA #IMPLIED
-blocking CDATA #IMPLIED
 ```
 
 使用日志
@@ -760,9 +745,7 @@ SqlSession [org.apache.ibatis.session.defaults.DefaultSqlSession@14d81ba5] was n
 Cache Hit Ratio [com.mybatis.mapper.DeptMapper]: 0.5
 ```
 
-
-
-如果我们使用注解开发 ,切记要么你xml的mapper开启,要么你mapper对象开启,两者不能同时共存,所以很坑.
+如果我们使用注解开发 ,切记**要么你xml的Mapper文件开启,要么你Mapper接口开启,两者不能同时共存,所以很坑.**
 
 就是只能让你环境只能是一个,所以对于选择查询的语句,要么放入xml,要么放入mapper文件,二选一.
 
@@ -775,15 +758,11 @@ Cache Hit Ratio [com.mybatis.mapper.DeptMapper]: 0.5
 
 
 
-如果emp引用了dept的数据, dept的数据修改了,由于两者不在一个`namespace`下,此时会造成dept修改数据时,emp无法感知到dept修改,造成脏读,此时	需要一个 `<cache-ref namespace="com.mybatis.mapper.EmpMapper"></cache-ref>`
+如果`Emp`引用了`Dept`的数据, `dept` 命名空间下的数据修改了,由于两者不在一个`namespace`下,此时会造成dept修改数据时,emp无法感知到dept修改,造成脏读,此时需要在`DeptMapper.xml`文件中加一个 `<cache-ref namespace="com.mybatis.mapper.EmpMapper"></cache-ref>`  标签
 
 其中将 dept的空间指向 emp 的空间
 
-
-
-
-
-### 彻底关闭缓存
+### 3. 彻底关闭缓存
 
 ```properties
 # 开启一级缓存   statement(关闭)/session(开启)   所以默认就是开启了一级缓存
@@ -795,7 +774,7 @@ mybatis.configuration.cache-enabled=false
 
 
 
-### 切换缓存保存位置(自定义缓存)
+### 4. 切换缓存保存位置(自定义缓存)
 
 ```java
 public class MyMybatisCache implements Cache {
@@ -856,13 +835,7 @@ public class MyMybatisCache implements Cache {
 
 ```
 
-
-
-
-
-
-
-### 总结
+## 4. 总结
 
 1. MyBatis的二级缓存相对于一级缓存来说，实现了`SqlSession`之间缓存数据的共享，同时粒度更加的细，能够到`namespace`级别，通过Cache接口实现类不同的组合，对Cache的可控性也更强。
 2. MyBatis在多表查询时，极大可能会出现脏数据，有设计上的缺陷，安全使用二级缓存的条件比较苛刻。

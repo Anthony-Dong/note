@@ -197,7 +197,7 @@ val twentySomethings = for (user <- userBase if (user.age >= 20 && user.age < 30
 twentySomethings.foreach(println _) // prints Travis Dennis
 
 
-// [()]
+//
 def foo(n: Int, v: Int): IndexedSeq[(Int, Int)] =
   for (i <- 0 until n; j <- i until n if i + j == v)
     yield (i, j)

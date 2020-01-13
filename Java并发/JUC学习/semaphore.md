@@ -41,7 +41,6 @@ public class TestSemaphore {
             System.out.println(Thread.currentThread().getName() + " 结束");
         }, "thread" + (i + 1)).start());
     }
-
 }
 ```
 
@@ -136,18 +135,18 @@ semaphore.availablePermits()
 我翻阅 源码发现 
 
 ```java
- 	/**
-     * The synchronization state.
-     */
-    private volatile int state;
-	/**
-     * Returns the current value of synchronization state.
-     * This operation has memory semantics of a {@code volatile} read.
-     * @return current state value
-     */
-    protected final int getState() {
-        return state;
-    }
+/**
+ * The synchronization state.
+ */
+private volatile int state;
+/**
+ * Returns the current value of synchronization state.
+ * This operation has memory semantics of a {@code volatile} read.
+ * @return current state value
+ */
+protected final int getState() {
+    return state;
+}
 ```
 
 这状态 表示 当前permit的数量 ,他用`volatile ` 修饰的目的就是为了 让多线程之间可以去共享这个变量 , 保证其可见性 . 根据数量进行 reduce 和 increase , 

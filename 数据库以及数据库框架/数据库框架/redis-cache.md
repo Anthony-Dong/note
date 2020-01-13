@@ -1,4 +1,4 @@
-# redis - cache
+# Spring - cache框架
 
 @EnableCaching: 程序入口开启使用缓存@EnableCaching 等价于 cache:annotation-driven/ 。能够在服务类方法上标注@Cacheable
 

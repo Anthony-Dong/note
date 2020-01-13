@@ -1,31 +1,122 @@
 # Scala的关键字
 
-## 1. object
+## 1. class
 
-## 2. class
+> ​	最基本的类
 
-## 3. case
+```java
+class Test(x:Int,var y:Int,val z:String,private var w:String,protected val a:Long) {
+  private var b:Int=_
 
-### 1. 基本使用
+  protected var c:String=_
 
-```scala
-case class Point(x: Int, y: Int)
+  var d:String=_
 
-object Main{
+  private[this] var e: String = _
+
+  @BeanProperty var f: String = _
+
+}
+```
+
+上面的换成java代码 
+
+```java
+public class com.link_node.demo.Test {
+  private int y;
+  private final java.lang.String z;
+  private java.lang.String w;
+  private final long a;
+  private int b;
+  private java.lang.String c;
+  private java.lang.String d;
+  private java.lang.String e;
+  private java.lang.String f;
+  public int y();
+  public void y_$eq(int);
+  public java.lang.String z();
+  private java.lang.String w();
+  private void w_$eq(java.lang.String);
+  public long a();
+  private int b();
+  private void b_$eq(int);
+  public java.lang.String c();
+  public void c_$eq(java.lang.String);
+  public java.lang.String d();
+  public void d_$eq(java.lang.String);
+  public java.lang.String f();
+  public void f_$eq(java.lang.String);
+  public java.lang.String getF();
+  public void setF(java.lang.String);
+  public com.link_node.demo.Test(int, int, java.lang.String, java.lang.String, long);
+}
+```
+
+当不加类型修饰`var`或者`val`的时候,`x`成员变量么啥用 ,不会生成getset方法 , 
+
+当你用private修饰一个变量是同时`b`变量也没啥用,他的方法全是`私有`的, 
+
+当你用`private[this]` 修饰一个变量时 ,他**不会生成getset方法** , 
+
+当你用 `var`修饰一个变量时,此时不被任何限定词修饰时 , 他默认getset方法是公有的, 当你用`val`修饰是`final`
+
+当你用 `@BeanProperty`修饰变量时 , 他会生成java的getset方法
+
+## 2. object
+
+> ​	一种派生类
+
+```java
+object Test2 {
+
   def main(args: Array[String]): Unit = {
-    val point1 = Point.apply(1,3)
-    val point = Point(1, 2)
-    val maybeTuple = Point.unapply(point)
-    println(maybeTuple.get._1)  
+    
   }
 }
 ```
 
-输出
+编译后
+
+```java
+D:\代码库\javase学习\DevelopmentJAVA\java-arithmetic\target\classes\com\link_node\demo>javap -p Test2$.class
+Compiled from "Test2.scala"
+public final class com.link_node.demo.Test2$ {
+  public static final com.link_node.demo.Test2$ MODULE$;
+  public static {};
+  public void main(java.lang.String[]);
+  private com.link_node.demo.Test2$();
+}
+
+D:\代码库\javase学习\DevelopmentJAVA\java-arithmetic\target\classes\com\link_node\demo>javap -p Test2.class
+Compiled from "Test2.scala"
+public final class com.link_node.demo.Test2 {
+  public static void main(java.lang.String[]);
+}
+```
+
+我们发现object修饰的类 , 他会被`final`修饰 , 同时会额外生成一个 `ClassName$.class`的对象 ,都被final修饰 
+
+
+
+## 3. case
+
+> ​	案例类,会生成两个类, 原来的类就是个普通类 , 还有一个 `ClassName.class` 的final修饰的类
+
+### 1. 基本使用
 
 ```scala
-1
+case class Test3(var a:Int,val b: String,c:String,private var name:String) {
+
+}
 ```
+
+你什么也不修饰 `c:String` , 他默认是被`val`修饰的
+
+你比如加了 `private` 修饰, 此时就是啥用也没有
+
+
+
+
 
 
 
@@ -170,5 +261,43 @@ object Main10 extends App {
 >
 > ​	
 
-> 
+
+
+## var val private 修饰的作用
+
+```scala
+// 什么也不修饰的 get set方法都是public的
+class Person(var name: String, val age: Int, private var sex: String) {
+
+  // 这个修饰的不会生成get , set方法 
+  private[this] var gender: String = _
+
+  //被 private修饰的,get,set方法是私有的
+  private var birthday: Date = _
+}
+```
+
+
+
+```java
+public class com.spark.test2.Person {
+  private java.lang.String name;
+  private final int age;
+  private java.lang.String sex;
+  private java.lang.String gender;
+  private java.util.Date birthday;
+  public java.lang.String name();
+  public void name_$eq(java.lang.String);
+  public int age();
+  private java.lang.String sex();
+  private void sex_$eq(java.lang.String);
+  private java.util.Date birthday();
+  private void birthday_$eq(java.util.Date);
+  public com.spark.test2.Person(java.lang.String, int, java.lang.String);
+}    
+```
+
+
+
+
 

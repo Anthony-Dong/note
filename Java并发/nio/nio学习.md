@@ -62,55 +62,55 @@ while (buffer.remaining()>0) {
 - limit：在写模式下表示最多能写入多少数据，此时和capacity相同。在读模式下表示最多能读多少数据，此时和缓存中的实际 数据大小相同。     
 
 ```java
-    jdk中说 flip() It sets the limit to the current position and then sets the position to zero
-	
-	// Invariants: mark <= position <= limit <= capacity (很有内涵的)
-    private int mark = -1;
-    private int position = 0;
-    private int limit;
-    private int capacity;    
+jdk中说 flip() It sets the limit to the current position and then sets the position to zero
 
-	public final Buffer flip() {
-        limit = position;
-        position = 0;
-        mark = -1;
-        return this;
-    }
+// Invariants: mark <= position <= limit <= capacity (很有内涵的)
+private int mark = -1;
+private int position = 0;
+private int limit;
+private int capacity;    
 
-    public final int remaining() {
-        return limit - position;
-    }
-	// nextGetIndex() 方法 就是让position索引+1
-	//offset是偏移量 默认值为0,
-	// nb是一个初始化capacity大小的数组
-	protected int ix(int i) {
-        return i + offset;
-    }
+public final Buffer flip() {
+    limit = position;
+    position = 0;
+    mark = -1;
+    return this;
+}
 
-    public int get() {
-        return hb[ix(nextGetIndex())];
-    }
+public final int remaining() {
+    return limit - position;
+}
+// nextGetIndex() 方法 就是让position索引+1
+//offset是偏移量 默认值为0,
+// nb是一个初始化capacity大小的数组
+protected int ix(int i) {
+    return i + offset;
+}
 
-    final int nextGetIndex() {                          // package-private
-        if (position >= limit)
-            throw new BufferUnderflowException();
-        return position++;
-    }
-    public final Buffer clear() {
-        position = 0;
-        limit = capacity;
-        mark = -1;
-        return this;
-    }
-	public IntBuffer put(int x) {
-        hb[ix(nextPutIndex())] = x;
-        return this;
-    }
-    final int nextPutIndex() {                          // package-private
-        if (position >= limit)
-            throw new BufferOverflowException();
-        return position++;
-    }	
+public int get() {
+    return hb[ix(nextGetIndex())];
+}
+
+final int nextGetIndex() {                          // package-private
+    if (position >= limit)
+        throw new BufferUnderflowException();
+    return position++;
+}
+public final Buffer clear() {
+    position = 0;
+    limit = capacity;
+    mark = -1;
+    return this;
+}
+public IntBuffer put(int x) {
+    hb[ix(nextPutIndex())] = x;
+    return this;
+}
+final int nextPutIndex() {                          // package-private
+    if (position >= limit)
+        throw new BufferOverflowException();
+    return position++;
+}	
 ```
 
 ​	当我们翻阅API时,发现buffer 并不是 一个线程安全的, clear方法并不会使得数组清空,只是让参数变成初始化的状态.还有就是不会看源码,看注释 jdk的源码注释真的很详细
@@ -120,40 +120,40 @@ while (buffer.remaining()>0) {
 ​		这里我写一段代码 大家应该可以理解
 
 ```java
-  		// model <tt>"r"</tt>, <tt>"rw"</tt>, <tt>"rws"</tt>
-        RandomAccessFile input = new RandomAccessFile("input.txt", "r");
-        RandomAccessFile output = new RandomAccessFile("output.txt", "rw");
-        // 打开一个管道
-        FileChannel readChannel = input.getChannel();
-        FileChannel writeChannel = output.getChannel();
+// model <tt>"r"</tt>, <tt>"rw"</tt>, <tt>"rws"</tt>
+RandomAccessFile input = new RandomAccessFile("input.txt", "r");
+RandomAccessFile output = new RandomAccessFile("output.txt", "rw");
+// 打开一个管道
+FileChannel readChannel = input.getChannel();
+FileChannel writeChannel = output.getChannel();
 
-        // allocateDirect(100)对外内存   allocate(100)
-        ByteBuffer buffer = ByteBuffer.allocateDirect(100);
+// allocateDirect(100)对外内存   allocate(100)
+ByteBuffer buffer = ByteBuffer.allocateDirect(100);
 
-        while (true) {
-            buffer.clear();
-            int read = readChannel.read(buffer);
-            System.out.println(read);
-            if (read == -1) {
-                break;
-            }
-            buffer.flip();
-            writeChannel.write(buffer);
-        }
-        input.close();
-        output.close();
+while (true) {
+    buffer.clear();
+    int read = readChannel.read(buffer);
+    System.out.println(read);
+    if (read == -1) {
+        break;
+    }
+    buffer.flip();
+    writeChannel.write(buffer);
+}
+input.close();
+output.close();
 
- 问题就是在  sun.nio.ch.IOUtil类中的这个断言和下面的那个判断语句
- private static int readIntoNativeBuffer(FileDescriptor var0, ByteBuffer var1, long var2, NativeDispatcher var4) throws IOException {
-        int var5 = var1.position();
-        int var6 = var1.limit();
+问题就是在  sun.nio.ch.IOUtil类中的这个断言和下面的那个判断语句
+private static int readIntoNativeBuffer(FileDescriptor var0, ByteBuffer var1, long var2, NativeDispatcher var4) throws IOException {
+int var5 = var1.position();
+int var6 = var1.limit();
 
-        assert var5 <= var6;  // position <= limit 显然无语,完美躲避
+assert var5 <= var6;  // position <= limit 显然无语,完美躲避
 
-        int var7 = var5 <= var6 ? var6 - var5 : 0;   这里返回0
-        if (var7 == 0) {
-            return 0;   所以read得到的是0
-        } else {................}
+int var7 = var5 <= var6 ? var6 - var5 : 0;   这里返回0
+if (var7 == 0) {
+    return 0;   所以read得到的是0
+} else {................}
 clear的目的就是复位, 如果不复位的话,那么 position 和 limit 在一起,没有容量,read=0,那为什么是read=0呢,我们发现最终源码,发现 
 ```
 
@@ -168,11 +168,11 @@ clear的目的就是复位, 如果不复位的话,那么 position 和 limit 在�
 - direct类 我们翻看源码 
 
   ```java
-   ByteBuffer buffer = ByteBuffer.allocateDirect(100);
+  ByteBuffer buffer = ByteBuffer.allocateDirect(100);
   
   buffer 源码
   // Used only by direct buffers
-   // NOTE: hoisted here for speed in JNI GetDirectBufferAddress
+  // NOTE: hoisted here for speed in JNI GetDirectBufferAddress
   long address;  // 指向的就是 本地内存的地址
   
   DirectByteBuffer() 我的实现代码我也 讲不清楚,设计到好多 sun公司的代码, sum开头的代码它不是开源的,大家常用的jdk ,其实分为两类 一个是 java,javax 这都是开源的,sun 就不是
@@ -225,79 +225,164 @@ clear的目的就是复位, 如果不复位的话,那么 position 和 limit 在�
 > ​	A token representing the registration of a {@link SelectableChannel} with a {@link Selector}.
 >
 > ​	一个 SelectableChannel 的 token (标记) ;
+>
+> ​	有四个状态 `OP_ACCEPT `   `OP_CONNECT `  `OP_WRITE `  `OP_READ` 
 
 
 
-## 2.尝试去使用
+## 2. NIO编写服务器
 
 ```java
-   		// 创建一个 SelectableChannel 的对象
-		ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-		// 这一步必须设置为 非阻塞的
-        serverSocketChannel.configureBlocking(false);
-		// 绑定一个socket对象 // 让他去监听 8899 端口
-        ServerSocket socket = serverSocketChannel.socket();
-        socket.bind(new InetSocketAddress(8899));
-		
-		//创建一个 Selector对象
-        Selector selector = Selector.open();
-		// 把连接事件注册到 Selector对象上
-        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
+// 创建一个 SelectableChannel 的对象
+ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+// 这一步必须设置为 非阻塞的
+serverSocketChannel.configureBlocking(false);
 
-		// 所有的 网络编程入口都是个死循环 
-        while (true) {
-            
-            // 每次进行轮询
-            selector.select(); //阻塞
-			
-            // 当监听到事件时 执行一下代码
-            Set<SelectionKey> selectionKeys = selector.keys();
-			
-            selectionKeys.forEach(selectionKey -> {
-                // 如果是已连接的
-                if (selectionKey.isAcceptable()) {
-				
-                 // 获取到连接对象
-                 ServerSocketChannel  serverChannel = (ServerSocketChannel)selectionKey.channel();
+// 绑定一个socket对象 , 让他去监听 8899 端口 , 跟BIO一样,传统socket编程
+ServerSocket socket = serverSocketChannel.socket();
+socket.bind(new InetSocketAddress(8899));
 
-                   
-                    SocketChannel socketChannel = null;
-                    try {
-                        // 打开 socketChannel (网络编程入口)
-                        socketChannel = serverChannel.accept();//阻塞
-                        
-                        if (null != socketChannel) {
-                            socketChannel.configureBlocking(false);
-                            socketChannel.register(selector, SelectionKey.OP_READ);
-                        }
-                    } catch (IOException e) {
-//                        e.printStackTrace();
-                    }
+// 创建一个 Selector对象
+Selector selector = Selector.open();
+// 把连接事件注册到 Selector对象上
+serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+ByteBuffer buffer = ByteBuffer.allocate(1024);
 
-                } else if (selectionKey.isReadable()) {
-                    SocketChannel channel = (SocketChannel) selectionKey.channel();
-                    Integer read=0;
-                    try {
-                        // 这里每次只读取一个字节
-                         read = channel.read(buffer);
-                    } catch (IOException e) {
-//                        e.printStackTrace();
-                    }
+// 死循环,不断轮询
+while (true) {
 
-                    if (read >0) {
-                        buffer.flip();
-                        Charset charset = Charset.forName("utf-8");
-                        char[] array = charset.decode(buffer).array();
+    // 每次进行轮询
+    selector.select(); //阻塞
 
-                        String msg = new String(array);
+    // 当监听到事件时 执行一下代码
+    Set<SelectionKey> selectionKeys = selector.keys();
 
-                        System.out.println(msg);
+    selectionKeys.forEach(selectionKey -> {
+        // 如果是已连接的
+        if (selectionKey.isAcceptable()) {
 
-                        buffer.clear();
-                    }
+         // 获取到连接对象
+         ServerSocketChannel  serverChannel = (ServerSocketChannel)selectionKey.channel();
+
+            SocketChannel socketChannel = null;
+            try {
+                // 打开 socketChannel (网络编程入口)
+                socketChannel = serverChannel.accept();//阻塞
+
+                if (null != socketChannel) {
+                    socketChannel.configureBlocking(false);
+                    socketChannel.register(selector, SelectionKey.OP_READ);
                 }
-            });
+            } catch (IOException e) {
+//                        e.printStackTrace();
+            }
+
+        } else if (selectionKey.isReadable()) {
+            SocketChannel channel = (SocketChannel) selectionKey.channel();
+            Integer read=0;
+            try {
+                // 读取到buffer中
+                 read = channel.read(buffer);
+            } catch (IOException e) {
+//                        e.printStackTrace();
+            }
+
+            if (read >0) {
+                buffer.flip();
+                Charset charset = Charset.forName("utf-8");
+                char[] array = charset.decode(buffer).array();
+
+                String msg = new String(array);
+
+                System.out.println(msg);
+
+                buffer.clear();
+            }
         }
+    });
+}
+```
+
+
+
+## 3. 编写日志读写
+
+写 , 每100ms 写一行
+
+```java
+public class TestWriter {
+
+
+    public static void main(String[] args) throws IOException {
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\12986\\Desktop\\file.txt"));
+
+        StringBuilder builder = new StringBuilder(20);
+        AtomicInteger integer = new AtomicInteger(0);
+
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    // 设置他的写指针
+                    builder.setLength(0);
+                    
+                    // 添加数据
+                    builder.append("当前行 : " + integer.incrementAndGet() + "\n");
+                    
+                    // 写数据
+                    writer.write(builder.toString());
+                    
+                    // 刷洗记得 , 不然无法保存
+                    writer.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, 0, 100);
+
+    }
+
+}
+```
+
+读取 , 读操作
+
+```java
+public class TestRead {
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+
+        RandomAccessFile file = new RandomAccessFile(new File("C:\\Users\\12986\\Desktop\\file.txt"), "r");
+
+        FileChannel channel = file.getChannel();
+        ByteBuffer allocate = ByteBuffer.allocate(100);
+
+        // 开始长度
+        int start = 0;
+
+        while (true) {
+            // 1. 清空
+            allocate.clear();
+            // 2. 读
+            int read = channel.read(allocate, start);
+
+            // 3. 如果读取数据为-1 返回
+            if (read == -1) continue;
+
+            // 4. start=start+读取长度
+            start += read;
+
+            // 变成数组 -> 由于需要读取不需要0拷贝
+            byte[] array = allocate.array();
+
+            // 5.读取日志
+            String log = new String(array, 0, read, Charset.forName("utf8"));
+
+            // 6. log
+            System.out.println(log);
+        }
+    }
+}
 ```
 

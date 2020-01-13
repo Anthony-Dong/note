@@ -223,3 +223,5 @@ public interface BeanPostProcessor {
 
 指示要导入的一个或多个@Configuration类。提供与Spring XML中的<import/>元素相同的功能。允许导入@Configuration类，ImportSelector和ImportBeanDefinitionRegistrar实现，以及常规组件类(从4.2;类似于AnnotationConfigApplicationContext.register)。也就四种 .. .. . . .
 
+
+

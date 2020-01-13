@@ -197,7 +197,7 @@ pool-1-thread-1-- 3
 
 
 
-## 3. ThreadPoolExecutor关闭的三种方式
+## 3. 如何停止一个线程
 
 [实现方式大家可以参考我的推荐链接](https://www.cnblogs.com/trust-freedom/p/6693601.html)
 
@@ -211,8 +211,6 @@ pool-1-thread-1-- 3
 - **内部正在跑的任务和队列里等待的任务，会执行完成**
 - 等到第二步完成后，才真正停止
 - **无返回值**
-
-
 
 ### 2. shutdownNow() 方法
 
@@ -233,8 +231,6 @@ pool-1-thread-1-- 3
 
 然后返回**true（shutdown请求后所有任务执行完毕）**或**false（已超时）**
 
-
-
 ### 4. shutdown()和awaitTermination()的区别
 
 - shutdown()后，不能再提交新的任务进去；但是awaitTermination()后，可以继续提交。
@@ -248,164 +244,187 @@ pool-1-thread-1-- 3
 		   es.shutdownNow();  
 		}
 
-	// 这里为啥我不死锁.... 第三点我试着么啥事,大家可以试试,这个
+	// 这里为啥我不死锁.... 第三点我试着么啥事,大家可试试,这个
 ```
-
-
 
 ### 4. 对比
 
-- 优雅的关闭，用shutdown()
-- 想立马关闭，并得到未执行任务列表，用shutdownNow()
+- 优雅的关闭，用shutdown() , 是让这个线程执行完就关闭, 开始执行到结束
+- 想立马关闭，并得到未执行任务列表，用shutdownNow() , 就是立马全部给我停止 , 队列里多余的任务我不干了
 - 优雅的关闭，并允许关闭声明后新任务能提交，用awaitTermination()
 
+## 4. 如何让主线程与子线程同步执行
 
-
-举个栗子
-
-```
- private static ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 4, 10L,  TimeUnit.SECONDS, new ArrayBlockingQueue<>(2), new ThreadPoolExecutor.CallerRunsPolicy());  
-
- public static void main(String[] args) throws InterruptedException {
-
-        executor.execute(() -> new Task(1).run());
-        executor.execute(() -> new Task(2).run());
-        executor.execute(() -> new Task(3).run());
-        executor.execute(() -> new Task(4).run());
-        executor.execute(() -> new Task(5).run());
-        executor.execute(() -> new Task(6).run());
-
-		// 查看队列中的任务
-        executor.getQueue().forEach(System.out::println);
-		
-     	// 设置2000L 其中不需要加 L 因为他是 long不是 Long类型
-     	// 设置等待时间, 等待完毕还可以 继续执行其他任务
-        executor.awaitTermination(2000L, TimeUnit.MILLISECONDS);
-
-
-        executor.execute(() -> new Task(7).run());
-
-    }
-
-
-    private static class Task implements Runnable{
-        private int num;
-
-        public Task(int num) {
-            this.num = num;
-        }
-
-        @Override
-        public void run() {
-            try {
-                TimeUnit.SECONDS.sleep(1);
-                System.out.println(Thread.currentThread().getName() + " ---- " + num);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-```
-
-
-
-## 4. 提交方式 -  submit & execute
-
-使用方式 :  
+### 1. 单线程同步
 
 ```java
-public class TestThreadPoolExecutor {
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(10, 20, 240, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1024),
-                new ThreadPoolExecutor.CallerRunsPolicy());
+@Test
+public void testSingle() throws InterruptedException {
+    Thread thread = new Thread(() -> {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("等待了一秒钟");
+    });
 
-        // 我一种 方式
-        executor.execute(()->{
-            System.out.println("new  runnable");
+    thread.start();
+    // 1. 第一种方式
+    thread.join();
+    System.out.println("线程执行结束");
+}
+```
 
-        });
+其实关键点在于join方法 , 我们改一下 , 第一种方式直接阻塞, 用死循环, 这样做的不好处就是空掉着CPU
 
+```java
+public void testSingle() throws InterruptedException {
+    Thread thread = new Thread(() -> {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("等待了一秒钟");
+    });
 
-        // 第二种 方式
-        Future<String> over = executor.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    TimeUnit.SECONDS.sleep(1);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }, "over");
-        // 这个方法会阻塞
+    thread.start();
+    // 2. 第二种方式
+    while (thread.isAlive()) {
+        // 不做任何事, 空掉着CPU, 这么其实不太好
+    }
+    System.out.println("线程执行结束");
+}
+```
 
+用wait , 对象锁
 
+```java
+public void testSingle() throws InterruptedException {
+    Thread thread = new Thread(() -> {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1000);
+        } catch (InterruptedException e) {
+            //
+        }
+        System.out.println("等待了一秒钟");
+    });
 
+    thread.start();
+    // 1. 第三种方式 , 切记wait对象必须在sync里面,同时加锁
+    synchronized (thread) {
+        thread.wait();
+    }
 
-        // submit 方法
-        Future<String> future = executor.submit(new Callable<String>() {
-            @Override
-            public String call() throws Exception {
-                TimeUnit.SECONDS.sleep(2);
-                return "HELLO WORLD , Future";
-            }
-        });
+    System.out.println("线程执行结束");
+}
+```
 
+第三种 ,最安全 , 就是循环,加锁, 主要是防止用户把锁关了, 
 
-        FutureTask<String> task = new FutureTask<String>(new Callable<String>() {
-            @Override
-            public String call() throws Exception {
-                TimeUnit.SECONDS.sleep(3);
-                return  "HELLO WORLD , FutureTask";
-            }
-        });
-
-        // execute 方法
-        executor.execute(task);
-
-        // get 方法 获取结果 
-        System.out.println("task.get() = " + task.get());
-
-        System.out.println("future.get() = " + future.get());
-
-        System.out.println("over.get() = " + over.get());
-
-        executor.shutdown();
-
+```java
+while (thread.isAlive()) {
+    synchronized (thread) {
+        thread.wait();
     }
 }
 ```
 
-结果
+### 2. 多线程同步
 
 ```java
-new  runnable
-task.get() = HELLO WORLD , FutureTask
-future.get() = HELLO WORLD , Future
-over.get() = over
-```
+@Test
+public void testMultiple() {
+    ExecutorService executor = Executors.newFixedThreadPool(5);
+    long start = System.currentTimeMillis();
+    IntStream.range(0, 10).forEach(e -> {
+        executor.execute(() -> {
+            try {
+                TimeUnit.MILLISECONDS.sleep(2000);
+            } catch (InterruptedException e1) {
+                //
+            }
+            System.out.println(Thread.currentThread().getName() + " : 执行结束");
+        });
+    });
 
-
-
-> ​	上面我们发现  submit 提交了 一个`Callable` 对象 ,  那么 `Callable` 和 `Runnable` 有啥区别 , 我们发现 一个携带了返回值 , 一个不携带 , 
->
-> ​	那我们知道创建一个线程唯一的方法就是执行 `Runnable`  的实现类,然后执行 , , 所以 submit 实际上 做的就是 execute 我们看看源码就知道了, 最终执行的还是 去实现一个 `FutureTask`  ,然后执行 `execute()` 方法
->
-
-```java
-   public <T> Future<T> submit(Callable<T> task) {
-        if (task == null) throw new NullPointerException();
-       // FutureTask<V> 是 RunnableFuture的实现类 , 
-        RunnableFuture<T> ftask = newTaskFor(task);
-       // 执行 execute 
-        execute(ftask);
-        return ftask;
+    // 让线程执行完任务要关闭
+    executor.shutdown();
+    try {
+        // 阻塞 , 执行线程在这里就一直阻塞, 等待全部关闭才要通过
+        executor.awaitTermination(Integer.MAX_VALUE, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+        //
     }
+    System.out.println("程序执行结束 : " + (System.currentTimeMillis() - start) + " ms.");
+}
+```
+
+输出
+
+```java
+pool-1-thread-3 : 执行结束
+pool-1-thread-2 : 执行结束
+pool-1-thread-1 : 执行结束
+pool-1-thread-5 : 执行结束
+pool-1-thread-4 : 执行结束
+pool-1-thread-3 : 执行结束
+pool-1-thread-1 : 执行结束
+pool-1-thread-2 : 执行结束
+pool-1-thread-4 : 执行结束
+pool-1-thread-5 : 执行结束
+程序执行结束 : 4080 ms.
+```
+
+## 4. 提交方式 -  submit & execute
+
+有无返回值的区别, 其他么什么差异 , 还有就是get方法的差异,get方法是阻塞当, 当你一旦调用他, 那么当前线程会一直阻塞下去
+
+```java
+public void test() throws ExecutionException, InterruptedException {
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    long start = System.currentTimeMillis();
+    Future<?> submit = executor.submit(() -> {
+        try {
+            TimeUnit.MILLISECONDS.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.print(Thread.currentThread().getName()+" , ");
+    });
+    submit.get();
+    System.out.println("程序执行结束 : " + (System.currentTimeMillis() - start) + " ms .");
+
+    executor.shutdown();
+}
+```
+
+输出
+
+```java
+pool-1-thread-1 , 程序执行结束 : 1068 ms .
 ```
 
 
 
-> `RunnableFuture` 是什么 
+> ​	那我们知道创建一个线程唯一的方式就是new Thread , 然后参数里传入一个Runnable对象, 
+>
+
+```java
+public <T> Future<T> submit(Callable<T> task) {
+    if (task == null) throw new NullPointerException();
+   // FutureTask<V> 是 RunnableFuture的实现类 , 
+    RunnableFuture<T> ftask = newTaskFor(task);
+   // 执行 execute 
+    execute(ftask);
+    return ftask;
+}
+```
+
+
+
+> `RunnableFuture` 是什么  , 他实现了 `Runnable` 接口 
 
 ```java
 public interface RunnableFuture<V> extends Runnable, Future<V> {
