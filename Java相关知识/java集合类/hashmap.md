@@ -12,6 +12,8 @@ loadFactor  --  加载因子 , 默认值是0.75,
 
 threshold  --- 阈值 = initialCapacity  *loadFactor   , 
 
+比如初始化大小为16是吧, 其中loadFactor 为0.75,所以threshold  是12,当整个map大小大于12时 , 也就是当添加第13个数据时, 就需要进行扩容 .  扩容后的大小,为threshold  <<1 ,同时Capacity<<1, 所以负载因子越大, 每次扩容的大小就越大 . 碰撞就越小.  比如 0.5 ,那么第9个就需要扩容,所以很浪费, 
+
 
 
 默认的时候 `loadFactor` 是 0.75  , ` initial capacity` 是 16  , `threshold` 因此就是 俩数字相乘 12 
@@ -81,7 +83,54 @@ if (newThr == 0) {
 
 
 
-### 2. treeifyBin 
+```java
+final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
+               boolean evict) {
+    Node<K,V>[] tab; Node<K,V> p; int n, i;
+    if ((tab = table) == null || (n = tab.length) == 0)
+        n = (tab = resize()).length;
+    if ((p = tab[i = (n - 1) & hash]) == null)
+        tab[i] = newNode(hash, key, value, null);
+    else {
+        Node<K,V> e; K k;
+        if (p.hash == hash &&
+            ((k = p.key) == key || (key != null && key.equals(k))))
+            e = p;
+        else if (p instanceof TreeNode)
+            e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+        else {
+            for (int binCount = 0; ; ++binCount) {
+                if ((e = p.next) == null) {
+                    p.next = newNode(hash, key, value, null);
+                    if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                        treeifyBin(tab, hash);
+                    break;
+                }
+                if (e.hash == hash &&
+                    ((k = e.key) == key || (key != null && key.equals(k))))
+                    break;
+                p = e;
+            }
+        }
+        if (e != null) { // existing mapping for key
+            V oldValue = e.value;
+            if (!onlyIfAbsent || oldValue == null)
+                e.value = value;
+            afterNodeAccess(e);
+            return oldValue;
+        }
+    }
+    ++modCount;
+    if (++size > threshold)
+        resize();
+    afterNodeInsertion(evict);
+    return null;
+}
+```
+
+
+
+### 2. treeifyBin (树化)
 
 还有就是一个 `treeifyBin` 的操作 , 就是当 一个Node中的长度 > `TREEIFY_THRESHOLD` 就会进行`treeifyBin` 的操作
 

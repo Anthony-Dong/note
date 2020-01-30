@@ -1,78 +1,81 @@
-# JUC - CountDownLatch多线程同步工具
+# JUC - CountDownLatch  启动器
 
 > ​	CountDownLatch是一个同步工具类，它允许一个或多个线程一直等待，直到其他线程执行完后再执行。例如，应用程序的主线程希望在负责启动框架服务的线程已经启动所有框架服务之后执行。
 
-其实这个玩意跟 `java.util.concurrent.Semaphore` 很相似 , 看情况使用
+其实这个玩意跟 `java.util.concurrent.Semaphore` 很相似 , 但是又不相似 , 他使用的是`AQS` , 一个多线程共享的状态量 . 
 
 #### 构造方法 
 
 `java.util.concurrent.CountDownLatch#CountDownLatch` 方法
 
-参数count 可以理解为`countDown` 调用的次数  , 然后当次数够了, `await` 就可以停止等待了
+参数count 就是一个计数器 .  后续操作都是基于这个计数器的 . 
 
 ```java
-//the number of times {@link #countDown} must be invoked before threads can pass through {@link #await}
 public CountDownLatch(int count) {
         if (count < 0) throw new IllegalArgumentException("count < 0");
         this.sync = new Sync(count);
 }
 ```
 
-他涉及到 `AQS` 相关的知识 , 对于简单的计数器, 其实还不是他的主要难点, 计数器就是一个统计的方式, 所以引入了 `java.util.concurrent.locks.AbstractQueuedSynchronizer`  , 这个AQS的概念 , 对于线程的竞争以及公平与否, 这个玩意很难的, 我就不做过多的解释了 . 
-
 #### 核心方法
 
 `CountDownLatch`就俩方法指的我们注意 , 一个是`await`, 一个是`countDown`  ,
 
-`await `是等到 0 才能向下执行 (就是当前线程阻塞了) , `countDown`是每次减一
+`await `是等到计数器为0时候才能向下执行 (就是当前线程阻塞了) , `countDown`是每次减一
 
-#### 简单使用一下 
+- 等待计数器到0 才能停止等待
 
 ```java
-public static void main(String[] args) {
-    // 1. 初始化
-    final CountDownLatch lock = new CountDownLatch(1);
+public void await() throws InterruptedException{...}
+```
 
-    // 2. 等待线程
-    new Thread(() -> {
-        System.out.println(Thread.currentThread().getName() + " : 开始等待 . ");
+- 等待超时, 如果还没有计数器到0 , 就自动放弃等待. 
+
+```java
+public boolean await(long timeout, TimeUnit unit){...}
+```
+
+- 计数器减一操作
+
+```java
+public void countDown() {...}
+```
+
+
+
+## 为啥叫他为启动器 ? 
+
+### 例子一
+
+> ​	简单来个例子 , 我们现在有一个任务, 需要等待初始化完成 , 才能继续启动 .  这时候就是需要启动器
+
+```java
+public class TestCountdownLatch {
+    public static void main(String[] args) throws InterruptedException {
+        CountDownLatch Launcher = new CountDownLatch(1);
         long start = System.currentTimeMillis();
-        try {
-            // 等待
-            lock.await();
-        } catch (InterruptedException e) {
-           //
-        }
-        System.out.println(Thread.currentThread().getName() + " : 我等待结束 , 耗时 : " + (System.currentTimeMillis() - start));
-    }).start();
+        new Thread(() -> {
+            try {
+                Launcher.await();
+            } catch (InterruptedException e) {
+                //
+            }
+            System.out.println("启动成功 : " + (System.currentTimeMillis() - start));
+        }).start();
 
-    // 3. 解锁线程
-    new Thread(() -> {
-        try {
-            // 1000ms 以后再解锁
-            TimeUnit.MILLISECONDS.sleep(1000);
-        } catch (InterruptedException e) {
-            //
-        }
-
-        // -1 操作
-        lock.countDown();
-        System.out.println(Thread.currentThread().getName() + " : 我给你解锁 . ");
-    }).start();
+        TimeUnit.SECONDS.sleep(2);
+        Launcher.countDown();
+    }
 }
 ```
 
 输出
 
 ```java
-Thread-0 : 开始等待 . 
-Thread-0 : 我等待结束 , 耗时 : 1001
-Thread-1 : 我给你解锁 . 
+启动成功 : 2064
 ```
 
-
-
-#### 使用模型
+### 例子二
 
 ```java
 public class TestDemo {
@@ -132,7 +135,3 @@ Working now ...Thread-3
 Working now ...Thread-4
 Finished.
 ```
-
-
-
-所以工具放在这 , 用不用由你, 别强用
