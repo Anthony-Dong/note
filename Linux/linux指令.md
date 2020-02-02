@@ -79,18 +79,16 @@
    >   	  
    >  所以  chmod 777 ./test.sh   就是 所有用户都可以进行读写操作
    >  	 chmod 754 是 用户是 xwr ,组是 xr , 其他用户是 r
-   >  	 
+   >  ```
    >  
-   >   ```
-   >
-   >  
+   >   
    >
    >  2. chown 命令  功能：更改某个文件或目录的属主和属组。
    >
-   >   ```shell
-   >   chown -R user：group  filename    -R是 递归处理 -v显示执行过程
+   >  ```shell
+   >chown -R user：group  filename    -R是 递归处理 -v显示执行过程
    >   ```
-   >
+   >   
    >   
    >
 

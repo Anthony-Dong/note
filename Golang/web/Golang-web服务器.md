@@ -149,3 +149,105 @@ func (srv *Server) Serve(l net.Listener) error {
 }
 ```
 
+
+
+## 2. http 客户端
+
+其实不管怎么使用都是调用的是` func (c *Client) Do(req *Request) (*Response, error) `这个方法. 
+
+简单使用 :  
+
+就是这么简单 . 都是默认,有何不好呢.  但是对于特殊情况  , 比如说客户端连接超时机制 . 
+
+```go
+resp, err := http.Get("http://localhost:8888")
+```
+
+加入超时机制.  就需要自己定义了`http.Client` .  加入 `Timeout `.   
+
+```go
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
+)
+
+func main() {
+
+	// 定义客户端
+	client := &http.Client{Timeout: time.Second * 10}
+
+    // 定义请求
+	req, _ := http.NewRequest("GET", "http://localhost:8888", nil)
+
+	// 开始时间
+	start := time.Now().UnixNano() / 1e6
+
+	// 发送请求
+	response, e := client.Do(req)
+
+	// 异常
+	if e != nil {
+		fmt.Printf("cost : %d", time.Now().UnixNano()/1e6-start)
+		os.Exit(-1)
+	}
+
+	// 关闭流
+	defer response.Body.Close()
+
+	// 打印
+	body, _ := ioutil.ReadAll(response.Body)
+	fmt.Printf("cost : %d , res : %s\n", time.Now().UnixNano()/1e6-start, body)
+}
+```
+
+其实也可以使用 `http.Transport` 的CancelRequest(req)
+
+```go
+func main() {
+
+	// 定义一个超时 ctx
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	// 定义一个客户端
+	tr := &http.Transport{}
+	client := &http.Client{Transport: tr}
+	req, _ := http.NewRequest("GET", "http://localhost:1111", nil)
+
+	// 定义一个管道去接收 响应
+	ch := make(chan struct {
+		*http.Response
+		error
+	})
+
+	go func() {
+		// 发送请求
+		resp, err := client.Do(req)
+		ch <- struct {
+			*http.Response
+			error
+		}{resp, err}
+	}()
+
+	// 阻塞获取结果: 要么拿去结果. 要么超时
+	select {
+	case resp, _ := <-ch:
+		defer resp.Body.Close()
+		bytes, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("response : %s \n", bytes)
+	case <-ctx.Done():
+		// 取消请求
+		tr.CancelRequest(req)
+		// 获取取消结果
+		_, e := <-ch
+		fmt.Println("time out", e)
+	}
+}
+```
+
+
+
+两种方式各有各的好处 . 

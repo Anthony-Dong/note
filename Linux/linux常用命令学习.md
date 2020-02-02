@@ -211,7 +211,7 @@ find /opt/bigdata/hadoop-2.7.7/etc/hadoop -name '*env.sh'
 	usr/bin/fdfs_trackerd 启动配置
 	etc/init.d/fdfs_trackerd 启动服务脚本
 	usr/include/fads   插件目录
-### 
+
 ### jdk8配置
 
 下载地址 我提供了 : 网盘链接  `链接: https://pan.baidu.com/s/1WV7xDa2UN6pOXVnLiSjP-g 提取码: 7yhk 复制这段内容后打开百度网盘手机App，操作更方便哦` 
