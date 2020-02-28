@@ -6,7 +6,7 @@
 
 官网 http://kafka.apache.org/
 
-介绍 http://kafka.apache.org/intro
+介绍 http://kafka.apachecn.org/intro.html
 
 
 
@@ -15,6 +15,10 @@
 ### 1. 安装
 
 路径: http://kafka.apache.org/downloads
+
+> ​	kafka集群搭建特别简单, 只需要broker.id不同就可以了
+>
+> ​	然后就是zookeeper的地址.
 
 ```shell
 wget https://archive.apache.org/dist/kafka/0.11.0.3/kafka_2.11-0.11.0.3.tgz
@@ -61,49 +65,11 @@ PIDS=$(ps ax | grep -i 'Kafka' | grep java | grep -v grep | awk '{print $1}')
 
 ```
 
-### 2. 客户端CRUD 使用
+### 2. 使用跟着官方文档
 
-```shell
-1. 增加
-kafka-topics.sh --zookeeper localhost:2181 --create --topic myfirsttopic --partitions 1 --replication-factor 1
-意思就是: 执行zk地址 创建topic 指定topic名字  创建1个分区 创建一个副本
-
-此时 zkCli查看
-[zk: localhost:2181(CONNECTED) 6] ls /
-[app, cluster, controller, controller_epoch, brokers, zookeeper, admin, isr_change_notification, consumers, latest_producer_id_block, config]
-[zk: localhost:2181(CONNECTED) 7] ls /brokers
-[ids, topics, seqid]
-[zk: localhost:2181(CONNECTED) 8] ls /brokers/topics
-[myfirsttopic] (这里多了一个topic节点)
-[zk: localhost:2181(CONNECTED) 9] 
-
-2.查看全部信息
-kafka-topics.sh --zookeeper localhost:2181 --list
-
-查看某个节点信息
-kafka-topics.sh --zookeeper localhost:2181 --describe --topic myfirsttopic
-
-[admin@localhost kafka_2.11-0.11.0.3]$ kafka-topics.sh --zookeeper localhost:2181 --describe --topic myfirsttopic
-Topic:myfirsttopic	PartitionCount:1	ReplicationFactor:1	Configs:
-	Topic: myfirsttopic	Partition(分区从0开始): 0	Leader(所位于的broker-id): 0	Replicas(副本所在的broker-id位置): 0	Isr(和leader保持同步的副本集合): 0
-
-3. 删除
-kafka-topics.sh --zookeeper localhost:2181 --delete --topic myfirsttopic
-
-4.改(alter)
-kafka-topics.sh --zookeeper localhost:2181 --alter --topic myfirsttopic --patication 2(修改后的分区只能增加不能减少)
+[官方文档链接](http://kafka.apachecn.org/quickstart.html) 
 
 
-
-5.启动生产者消费者
-kafka-console-producer.sh --topic myfirsttopic --broker-list localhost:9092(可以指定多个)
-
-第一种方式
-kafka-console-consumer.sh --topic myfirsttopic --bootstrap-server localhost:9092
-
-第二种方式
-kafka-console-consumer.sh --topic myfirsttopic --bootstrap-server localhost:9092 --from-beginning(从头开始消费,涉及到offset)
-```
 
 
 

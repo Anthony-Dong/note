@@ -46,7 +46,8 @@ dataDir=/opt/software/zookeeper-3.4.10/zkData
 关闭
 ./zkServer.sh  stop
 
-也可以建立 软连接  ls -s /opt/software/zookeeper-3.4.10/bin/zkServer.sh  /usr/bin/zkServer
+也可以建立 软连接  
+ln -s /opt/software/zk/zookeeper-3.4.10/bin/zkServer.sh  /usr/bin/zkServer
 ```
 
 - 集群搭建

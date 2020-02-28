@@ -163,6 +163,75 @@ func (srv *Server) Serve(l net.Listener) error {
 resp, err := http.Get("http://localhost:8888")
 ```
 
+// DefaultClient 是一个var DefaultClient = &Client{} 单例对象
+
+```go
+func Get(url string) (resp *Response, err error) {
+	return DefaultClient.Get(url)
+}
+```
+
+// 继续走  , 需要`NewRequest()` 方法实例化一个request对象. 
+
+```go
+func (c *Client) Get(url string) (resp *Response, err error) {
+	req, err := NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(req)
+}
+```
+
+` c.Do(req)` - > `Client.send()` 方法  , 前面都是对cookie之类的东西进行不断的处理 .  也就是不断的封装request对象. 
+
+最后还是来到了  `RoundTripper.RoundTrip(req)` 方法.  
+
+```go
+// Transport specifies the mechanism by which individual
+// HTTP requests are made.
+// If nil, DefaultTransport is used. 默认使用的是DefaultTransport
+Transport RoundTripper 
+```
+
+他每次会调用 :  当你没有就会返回一个 DefaultTransport
+
+```go
+func (c *Client) transport() RoundTripper {
+	if c.Transport != nil {
+		return c.Transport
+	}
+	return DefaultTransport
+}
+```
+
+```go
+var DefaultTransport RoundTripper = &Transport{
+	Proxy: ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}).DialContext,
+	MaxIdleConns:          100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+```
+
+这里携带了大量的信息 . 包括超时之类的. 
+
+```go
+resp, didTimeout, err = send(req, c.transport(), deadline)
+```
+
+最后还是来到了 `RoundTrip(*Request) (*Response, error)`   , `Transport`实现了这个接口 . 
+
+
+
+
+
 加入超时机制.  就需要自己定义了`http.Client` .  加入 `Timeout `.   
 
 ```go

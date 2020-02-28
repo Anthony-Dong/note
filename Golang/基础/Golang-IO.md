@@ -1,20 +1,40 @@
 # Golang -IO 操作
 
-Go 官方提供了一些 API，支持对**内存结构**，**文件**，**网络连接**等资源进行操作
+Go 官方提供了一些 API，支持对**内存结构**，**文件**，**网络连接**等资源进行操作 , 
+
+​	其中IO是一个编程语言的核心, 希望掌握这些核心操作 . 相对于Java他真的很丰富. Java的话推荐使用 . Guava包或者RandomAccessFile. 这些先进的API.  而Golang更是接近系统操作. 更加灵活, 
 
 > ​	这些IO操作涉及到一些权限问题. 所以最好linux 上写代码 . 怎么说呢. 反正最好吧. 我用的cloudstudio
 
-## IO操作
+## IO流
 
-[IO基本操作可以参考这篇文章了](https://segmentfault.com/a/1190000015591319)   https://segmentfault.com/a/1190000015591319
+> ​	golang的 IO流  , 讲解. 其实就是俩接口  , write. read ,还有一个close . 其他都是封装 . 所以对应着三个接口. 
 
-
+[IO基本概念可以参考这篇文章了](https://segmentfault.com/a/1190000015591319)   https://segmentfault.com/a/1190000015591319
 
 ## os包
 
-#### `os.Open("test.log")`  
+> ​	操作文件的基本包 , 所以是 操作系统(Operating System，简称OS)  , 懂了吗  .  
 
-这个是打开文件 , 只有读取权限 . 是 os.O_RDONLY
+#### `os.Open(name)`  
+
+这个是打开文件 , 只有读取权限 . 是 os.O_RDONLY , 查看源码 发现就一个readonly
+
+```go
+func Open(name string) (*File, error) {
+	return OpenFile(name, O_RDONLY, 0)
+}
+```
+
+#### `os.Create(name)` 
+
+答案就是确实矿建了 , 权限呢 读写. 没有时就创建. 有就清空文件内容
+
+```go
+func Create(name string) (*File, error) {
+	return OpenFile(name, O_RDWR|O_CREATE|O_TRUNC, 0666)
+}
+```
 
 
 
@@ -29,11 +49,11 @@ const (
 	O_WRONLY int = syscall.O_WRONLY // open the file write-only.
 	O_RDWR   int = syscall.O_RDWR   // open the file read-write.
 	// The remaining values may be or'ed in to control behavior.
-	O_APPEND int = syscall.O_APPEND // append data to the file when writing.
+    O_APPEND int = syscall.O_APPEND // append data to the file when writing.(继续写)
 	O_CREATE int = syscall.O_CREAT  // create a new file if none exists.
 	O_EXCL   int = syscall.O_EXCL   // used with O_CREATE, file must not exist.
 	O_SYNC   int = syscall.O_SYNC   // open for synchronous I/O.
-	O_TRUNC  int = syscall.O_TRUNC  // truncate regular writable file when opened.就是如果有append和trunc,那么打开文件就清空
+    O_TRUNC  int = syscall.O_TRUNC  // truncate regular writable file when opened.(清空文件)
 )
 ```
 
@@ -257,22 +277,252 @@ On Unix:
 
 
 
-## 日志
+## log 包
 
-> ​	log
+> ​	log , 可以创建日志文件 .  很方便. 
 
 ```go
 f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 if err != nil {
     log.Fatal(err)
 }
+defer f.Close()
 // 设置日志输出路径
 log.SetOutput(f)
 log.Println("hello log)
-defer f.Close()
 ```
 
-## 文件信息
+
+
+## fmt 包
+
+> ​	这个包操作文件可舒服了. 超级舒服
+
+打印信息就不说了 . 对应着三个  `fmt.Println()` , `fmt.Print()` , `fmt.Printf()`
+
+其实读写也对应着三个, 
+
+首先看写吧 
+
+```go
+func main() {
+	file, _ := os.Create("txt.log")
+	defer file.Close()
+	fmt.Fprintf(file,"Now %s\n",time.Now().Format("2020-01-01 12.00.00"))
+}
+```
+
+然后文件就按照格式写进去了, 还有俩方法也是 `fmt.Fprint()`  和 `fmt.Fprintln()`  估计人都懂. 
+
+
+
+然后就是读取文件了.  很简单
+
+```go
+func main() {
+	file, _ := os.Open("txt.log")
+	defer file.Close()
+	var content string
+    fmt.Fscan(file, &content)//遇到空格就停住了. // 输出 :  Now
+}
+```
+
+
+
+我们要打印全部就 . 
+
+```go
+func main() {
+	file, _ := os.Open("txt.log")
+	defer file.Close()
+	var content string
+	for {
+		n, _ := fmt.Fscan(file, &content)
+		if n == 0 {
+			break
+		}
+		fmt.Printf("%s\n", content)
+	}
+}
+```
+
+```go
+Now
+2020-2-2
+22.84.84
+```
+
+## bufio 包
+
+> ​	这个是将文件读到一个缓冲区中, 基于缓冲区操作. 所以很方便. 
+
+#### 输入 . 模拟控制栏输入
+
+```go
+func main() {
+	input := bufio.NewScanner(os.Stdin)
+
+	for input.Scan() {
+		fmt.Println(input.Text())
+	}
+}
+```
+
+
+
+#### 按行读取文件.  
+
+```go
+func main() {
+	file, _ := os.Open("txt.log")
+
+	defer file.Close()
+
+	input := bufio.NewReader(file)
+
+	line, _, _ := input.ReadLine()
+
+	fmt.Printf("%s\n",line)
+}
+```
+
+输出 :
+
+```go
+Now :  2020-02-02 22.15.15
+```
+
+
+
+注意这个读取完整文件需要如何做  , 这个方法是不会报错的, 我测试是. 唯一判断结束的就是判断. line这个切片的长度. 如果是0. 就直接break.
+
+```go
+func main() {
+
+	file, _ := os.Open("txt.log")
+
+	defer file.Close()
+
+	input := bufio.NewReader(file)
+
+	for {
+		line, isPrefix, err := input.ReadLine()
+		if len(line) == 0 {
+			break
+		}
+		fmt.Printf("%s , %v , %v\n", line, isPrefix, err)
+	}
+}
+```
+
+输出 
+
+```go
+Now :  2020-02-02 22.15.15 , false 
+Now :  2020-02-02 22.15.15 , false 
+Now :  2020-02-02 22.15.15 , false 
+```
+
+
+
+#### `ReadSlice(byte)` 
+
+这个操作其实很nice .  可以切分
+
+```go
+func main() {
+
+	file, _ := os.Open("txt.log")
+
+	fmt.Println("\\n : ",byte('\n'))
+	defer file.Close()
+
+	input := bufio.NewReader(file)
+
+	for  {
+		line, err := input.ReadSlice(byte('\n'))
+
+		if err!=nil {
+			fmt.Println(err)
+			break
+		}
+		fmt.Println(line)
+	}
+}
+```
+
+输出 
+
+```go
+\n :  10
+[78 111 119 32 58 32 32 50 48 50 48 45 48 50 45 48 50 32 50 50 46 49 53 46 49 53 10]
+[78 111 119 32 58 32 32 50 48 50 48 45 48 50 45 48 50 32 50 50 46 49 53 46 49 53 10]
+[78 111 119 32 58 32 32 50 48 50 48 45 48 50 45 48 50 32 50 50 46 49 53 46 49 53 10]
+[10]
+EOF
+```
+
+很有用的, 他可以按照给定的换行符进行切分 .  这里如果是windows换行符就恶心了 .  其实也无所谓结尾都是 `\n`
+
+, 对于 windows平台 `\r\n`是换行符. UNIX是 `\n`   , 所以么办法.  其中 `\n`=10 . `\r`=13
+
+后面还有很多操作 `ReadString` 和 `ReadBytes`  , 都很有用
+
+
+
+## ioutil  包
+
+> ​	这个包是个工具包. 包含方便的文件读写.  方便的新建临时目录 ,其实很简单. 我们看主要方法 
+
+
+
+![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/5d835a4b-10c1-40c1-b162-13f10065e186.png?x-oss-process=style/template01)
+
+
+
+其中 write 和 read 就不解释. 相信都懂. 
+
+
+
+我们就看看 `TempFile`   和 `TempDir`  ,其实你理解了 `Temp`指的是临时(Template)的意思就明白了  .  
+
+```go
+dirName, _ := ioutil.TempDir("", "example")
+fmt.Println(dirName)
+
+
+file, _ := ioutil.TempFile("D:/代码库/golang/src/com.io.test", "example")
+defer file.Close()
+fileName := file.Name()
+fmt.Println(fileName)
+```
+
+输出
+
+```go
+C:\Users\12986\AppData\Local\Temp\example029719187
+D:\代码库\golang\src\com.io.test\example522218718
+```
+
+其实默认路径是在用户的tmp目录下的.  指定的话就是你指定的了. 
+
+
+
+`writer := ioutil.Discard`  则是一个空的writer 接口 ,就是只写了接口方法,实际上啥也没做, 所以么啥用,明白了吧 . 
+
+```go
+var _ io.ReaderFrom = devNull(0)
+
+func (devNull) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (devNull) WriteString(s string) (int, error) {
+	return len(s), nil
+}
+```
+
+## 文件信息 Stat
 
 其实就是 `Stat` 信息, 知道这个其他随意
 

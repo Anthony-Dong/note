@@ -947,6 +947,8 @@ UPDATE orders SET count=count-5 , version=version+5 WHERE id=1 AND version=2 AND
 
 ## 15. linux 安装 mysql
 
+> 基本按照我这个路就可以了 .
+
 ```java
 [admin@hadoop1 ~]$ sudo wget -i -c http://dev.mysql.com/get/mysql57-community-release-el7-10.noarch.rpm
 
@@ -958,16 +960,17 @@ UPDATE orders SET count=count-5 , version=version+5 WHERE id=1 AND version=2 AND
 
 [admin@hadoop1 ~]$ systemctl status mysqld.service
 
-// 查看密码 记得 , 这个临时密码 ,需要记住
+// 查看密码记得 , 这个临时密码 ,需要记住
 [admin@hadoop1 ~]$ sudo  grep "password" /var/log/mysqld.log
 2019-11-21T11:27:46.135337Z 1 [Note] A temporary password is generated for root@localhost: iUa3!wQ2wu:j
 
-[admin@hadoop1 ~]$ mysql -uroot -piUa3!wQ2wu:j
+// ""加可以防止特殊字符
+[admin@hadoop1 ~]$ mysql -uroot -p"iUa3!wQ2wu:j"
 
-// 此时进入 mysql  ......密码不过过于简单 大小写区分开,同时有特殊符号
+// 此时进入 mysql  ......密码不过过于简单 大小写区分开,同时有特殊符号 , 大写小写字母,数字,符号
 ALTER USER 'root'@'localhost' IDENTIFIED BY 'new_password';
 
-// 让任何主机可以访问 ....
+// 让任何主机可以访问 ....授予权限
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'new_password' WITH GRANT OPTION;
 
 
@@ -980,7 +983,54 @@ sql_mode = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_
 
 
 
+2、添加用户
 
+```mysql
+//只允许指定ip连接
+create user 'user_name'@'localhost' identified by 'user_password';
+//允许所有ip连接（用通配符%表示）
+create user 'user_name'@'%' identified by 'user_password';
+```
+
+3、为新用户授权
+
+```mysql
+//基本格式如下
+grant all privileges on 数据库名.表名 to '新用户名'@'指定ip' identified by '新用户密码' ;
+//示例
+//允许访问所有数据库下的所有表
+grant all privileges on *.* to '新用户名'@'指定ip' identified by '新用户密码' ;
+// grant all privileges on *.* to 'admin'@'localhost' identified by 'admin123';
+//指定数据库下的指定表
+grant all privileges on test.test to '新用户名'@'指定ip' identified by '新用户密码' ;
+```
+
+4、设置用户操作权限
+
+```mysql
+//设置用户拥有所有权限也就是管理员
+grant all privileges on *.* to '新用户名'@'指定ip' identified by '新用户密码' WITH GRANT OPTION;
+// grant all privileges on *.* to 'admin'@'localhost' identified by 'admin123' WITH GRANT OPTION;
+//拥有查询权限
+grant select on *.* to '新用户名'@'指定ip' identified by '新用户密码' WITH GRANT OPTION;
+//其它操作权限说明,select查询 insert插入 delete删除 update修改
+//设置用户拥有查询插入的权限
+grant select,insert on *.* to '新用户名'@'指定ip' identified by '新用户密码' WITH GRANT OPTION;
+//取消用户查询的查询权限
+REVOKE select ON what FROM '新用户名';
+```
+
+5、删除用户
+
+```mysql
+DROP USER username@localhost;
+```
+
+6、修改后刷新权限
+
+```mysql
+FLUSH PRIVILEGES;
+```
 
 ## 14. Oracle 新语法 start with...connect by 
 

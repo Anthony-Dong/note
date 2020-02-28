@@ -169,7 +169,6 @@ func workWithTimeout(ctx context.Context) error {
 		select {
 		case <-time.After(50 * time.Millisecond):
 			fmt.Println("Doing some work ", i)
-
 			// we received the signal of cancelation in this channel
 		case <-ctx.Done():
 			fmt.Println("Cancel the context ", i)

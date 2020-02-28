@@ -102,9 +102,17 @@ context.writeAndFlush("hello netty").addListener(new GenericFutureListener<Futur
 });
 ```
 
-很显然是错误的. 这个只是执行 `Flush` 成功罢了 , 也就是写到了我们字节缓冲区(Netty中是 `Bytebuf` ,底层其实是socket缓冲区) . 所以他并不是代表发送成功 , 以此判断成功是错误的 , 有可能服务器不处理也很无奈, 丢包也常见
 
 
+其实对于Netty的回调来说, 其实是封装了一个Promise对象, 当write方法调用成功,或者未修改Promise对象. 
+
+```java
+public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {....}
+```
+
+这里可以控制回调. 那么我们是么时候实例化的这个对象呢 :  `io.netty.channel.AbstractChannelHandlerContext#writeAndFlush(java.lang.Object)` -> `io.netty.channel.AbstractChannelHandlerContext#newPromise` 这个会实例化一个. 
+
+所以比如我们在write方法中,修改了promise. 其实默认就是方法的调用.
 
 ## 4. Bytebuf
 
@@ -116,196 +124,74 @@ context.writeAndFlush("hello netty").addListener(new GenericFutureListener<Futur
 
 下面是我写的一个编解码器, 我们数据包协议很简单 , `协议版本号` 占用2字节, `数据体长度` 占用4字节, `数据体` 未知长度 , 但是会写入到数据长度中
 
-使用是 `MessageToByteEncoder` 和 `ByteToMessageDecoder` 他会给我们维护好一个缓冲区对象. 所以我们核心在于拿到缓冲区对象进行编解码 . 建议好好看看这个`ByteToMessageDecoder`类的源码
+使用是 `MessageToByteEncoder` 和 `ByteToMessageDecoder` 他会给我们维护好一个缓冲区对象. 所以我们核心在于拿到缓冲区对象进行编解码 . 建议好好看看这个`ByteToMessageDecoder`类的源码.
 
-Java对象转换成字节流,反过来同理 .  可以用Java序列化工具, 也可以使用其他工具 . 
 
-首先是最简单的解码器 , 因为我们发送绝对是发送一个完整的对象哇 , 如果你这个都半半分 , 无语了
+
+
+
+## 5. Netty事件的流程. 
+
+![img](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/dd6eee32-218d-488c-931f-464ad5791884.png)
+
+ 其实大致流程就是这个, 上诉是一个客户端流程, 从 inithandler入口 , 就开始了回调. 
+
+如何区分是否要传递, , `fire` 就是传递的意思. 对于我们开发来说 , 其实我们可以使用. `ChannelDuplexHandler` 继承类.  还有就是看父类是否传递了, 也就是默认实现传递, 基本就传递. 没有的系统会帮助我们调用. 
+
+
+
+我们可以通过调用 : 
+
+`ctx.writeAndFlush` -> 会调用上层的outbound接口 , 会调用 write()和flush() 方法.
+
+  `ctx.channel().writeAndFlush` -> 会从尾部开始调用, 也就是tail调用, 然后调用尾部, 尾部向上传播. 就这个. 
+
+
+
+## channel 属性传递
+
+// 定义一个 key , 类似于map中的key.
 
 ```java
-/**
- * 编码器  将 {@link NPack} 编码成为  ByteBuf 然后放入字节缓冲区
- * <p>
- * 主要就是写 一个 版本号, 数据包长度, 数据包 , 来做校验
- * <p>
- *
- * @date:2019/11/10 13:20
- * @author: <a href='mailto:fanhaodong516@qq.com'>Anthony</a>
- */
-public final class PackageEncoder extends MessageToByteEncoder<NPack> {
+static final AttributeKey<String> key = AttributeKey.valueOf("ip");
+```
 
-    /**
-     * 自定义协议头
-     */
-    private final short version;
+// 注册的时候我们将它设置进去. 
 
-    public PackageEncoder(short version) {
-        super();
-        this.version = version;
-    }
+```java
+ctx.channel().attr(key).set(ctx.channel().remoteAddress().toString());
+```
 
-    @Override
-    protected void encode(ChannelHandlerContext ctx, NPack msg, ByteBuf out)
-            throws Exception {
+// 其他时候就可以随意读取以及修改, 默认实现了 CAS . 所以线程安全操作.  
 
-        int release = out.writerIndex();
-
-        byte[] body = null;
-
-        try {
-            // 1. 将 NPack对象 转换成 字节数组形式
-            body = MessagePackPool.getPack().write(msg);
-
-            // 2. 获取 NPack 字节数组长度
-            int length = body.length;
-
-            // 3. 写入一个协议头 , 2个字节 16位 (-32768,32767)
-            out.writeShort(version);
-
-
-            // 4. 写入一个数据包长度 , 做校验  , 4个字节 32位 (-2147483648 , 2147483647 )
-            out.writeInt(length);
-
-
-            // 5. 写入数据体 - 真正的数据包
-            out.writeBytes(body);
-
-        } catch (Throwable error) {
-
-            // 抓取任何异常 -> 出现异常 -> 重置
-            out.writerIndex(release);
-        } finally {
-
-            // 清空 数组
-            body = null;
-            // 移除这个 MessagePack
-            MessagePackPool.removePack();
-        }
-    }
-}
+```java
+String ip = ctx.channel().attr(attributeKey).get();
 ```
 
 
 
-编码器其实是难的 , 需要遍历迭代 , 需要对各种异常进行预知.
+## epool / nio 循环组
+
+NIO 是Java提供了, 在linux系统中也是`Epoll` , 但是对于Netty 来说也封装了一个`Epoll`处理. 
+
+所以我们对于 linux内核 
 
 ```java
-/**
- * 解码器会很麻烦
- * <p>
- * 主要分为 4种情况
- * <p>
- * 1. 缓冲区只有一个数据包,此时只用做 版本校验 , 长度校验 , 然后读就可以了
- * 2. 缓冲区有多个数据包 , 可能是整数的倍数 , 就需要迭代读取
- * 3. 缓冲区可能有多个数据包 , 可能出现半个包的问题, 比如 2.5个 包, 此时就需要解码时注意
- * 4. 如果出现半个+整数个, 前面根本无法解码 , 此时就无法处理 , 可能出现丢包
- * <p>
- * 所以我们要求的是数据传输的完整性,最低要求将数据包完整的传输和接收
- *
- * @date:2019/11/10 13:40
- * @author: <a href='mailto:fanhaodong516@qq.com'>Anthony</a>
- */
+NioEventLoopGroup → EpollEventLoopGroup
 
-public final class PackageDecoder extends ByteToMessageDecoder {
+NioEventLoop → EpollEventLoop
 
-    /**
-     * 默认值是 {@link com.chat.core.netty.Constants#PROTOCOL_VERSION}
-     */
-    private final short VERSION;
+NioServerSocketChannel → EpollServerSocketChannel
 
-    /**
-     * 构造方法
-     */
-    public PackageDecoder(short version) {
-        super();
-        this.VERSION = version;
-    }
-
-    /**
-     * {@link ByteToMessageDecoder#channelRead(io.netty.channel.ChannelHandlerContext, java.lang.Object)}
-     * <p>
-     * 解码器
-     */
-    @Override
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-
-        // 获取当前线程的 MessagePack
-        MessagePack pack = MessagePackPool.getPack();
-
-        try {
-            handler(in, pack, out);
-        } finally {
-            // 移除
-            MessagePackPool.removePack();
-        }
-
-    }
-
-    /**
-     * 处理器 - 主要处理逻辑
-     */
-    private void handler(ByteBuf in, MessagePack pack, List<Object> out) {
-
-        // 如果可读
-        while (in.isReadable()) {
-
-            // 1. 记录最开始读取的位置 , 防止出错
-            int release = in.readerIndex();
-
-            // 2. 读取版本号 , 2个字节
-            short version = in.readShort();
-
-            // 3. 版本号一致 - > 继续执行
-            if (version == VERSION) {
-
-                // 4. 解码 -> 操作
-                NPack read = null;
-                byte[] bytes = null;
-
-                try {
-
-                    // 5. 读取长度 , 4个字节
-                    int len = in.readInt();
-
-                    // 6. 实例化数组
-                    bytes = new byte[len];
-
-                    // 7. 读取到数组中 , 此时可能会有异常 - > 我们抓住 indexOutOfBoundException
-                    in.readBytes(bytes, 0, len);
-
-                    // 8. 如果么问题, 就进行解码 -> 也可能出现异常 -> 抓取异常
-                    read = pack.read(bytes, NPack.class);
-
-                    // catch 抓取任何异常
-                } catch (Throwable e) {
-                    // 不做任何处理
-                } finally {
-
-                    // 清空数组引用 - 快速释放内存
-                    bytes = null;
-                }
-
-                // 解码错误-> 重置读指针位置 -> 返回
-                if (read == null) {
-                    in.readerIndex(release);
-                    return;
-                } else {
-
-                    // 一致就添加进去 - > 啥也不做
-                    out.add(read);
-                }
-            } else {
-
-                // 版本不一致 -> 重置读指针位置 -> 返回
-                in.readerIndex(release);
-                return;
-            }
-        }
-    }
-
-}
+NioSocketChannel → EpollSocketChannel
 ```
 
+区别就是 : 
+
+> Netty的 epoll transport使用 epoll edge-triggered 而 java的 nio 使用 level-triggered.
+>
+> 另外netty epoll transport 暴露了更多的nio没有的配置参数， 如 TCP_CORK, SO_REUSEADDR等等
 
 
- 
+
+其实对于Java的epoll来说,  如果select的轮询结果为空，也没有wakeup操作或者新的消息需要处理，则说明是个空轮询，可能会**触发JDK的epoll-bug** ,它会导致Selector的空轮询，是IO线程处于100%状态。

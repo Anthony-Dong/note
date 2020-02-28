@@ -12,7 +12,8 @@ public:
 void init(A *b)
 {
     cout << "未改变的地址 : " << b << endl;
-    *b = A();
+    A a = A();
+    b = &a;
     cout << "改变后的地址 : " << b << endl;
 }
 int main(int argc, char const *argv[])

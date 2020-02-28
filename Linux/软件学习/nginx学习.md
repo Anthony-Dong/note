@@ -6,15 +6,30 @@
 
 ## 2. 对代理服务器而言的正向代理与反向代理
 #### 1.正向代理
-![image](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy82MTUyNTk1LWQ3OGJiOWE3NzZiYmUxMmIucG5nP2ltYWdlTW9ncjIvYXV0by1vcmllbnQvc3RyaXAlN0NpbWFnZVZpZXcyLzIvdy8xMjQw)
+​		**正向代理**是一个位于客户端和原始服务器之间的服务器，为了从原始服务器取得内容，客户端向代理发送一个请求并指定目标(原始服务器)，然后代理向原始服务器转交请求并将获得的内容返回给客户端。 比如我们的梯子. 就类似于正向代理. 
 
-	客户端想要访问一个服务器，但是它可能无法直接访问这台服务器，这时候这可找一台可以访问目标服务器的另外一台服务器，而这台服务器就被当做是代理人的角色 ，称之为代理服务器，于是客户端把请求发给代理服务器，由代理服务器获得目标服务器的数据并返回给客户端。客户端是清楚目标服务器的地址的，而目标服务器是不清楚来自客户端，它只知道来自哪个代理服务器，所以正向代理可以屏蔽或隐藏客户端的信息。
-![image](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy82MTUyNTk1LWYxZTdlZTA5MDdiZjJhMTUucG5nP2ltYWdlTW9ncjIvYXV0by1vcmllbnQvc3RyaXAlN0NpbWFnZVZpZXcyLzIvdy8xMjQw)
 #### 2.反向代理
-从上面的正向代理，你会大概知道代理服务器是为客户端作代理人，它是站在客户端这边的。
-其实反向代理就是代理服务器为服务器作代理人，站在服务器这边，它就是对外屏蔽了服务器的信息，常用的场景就是多台服务器分布式部署，像一些大的网站，由于访问人数很多，就需要多台服务器来解决人数多的问题，这时这些服务器就由一个反向代理服务器来代理，客户端发来请求，先由反向代理服务器，然后按一定的规则分发到明确的服务器，而客户端不知道是哪台服务器。常常用nginx来作反向代理。
+​		**反向代理**实际运行方式是代理服务器接受网络上的连接请求。它将请求转发给内部网络上的服务器，并将从服务器上得到的结果返回给网络上请求连接的客户端，此时代理服务器对外就表现为一个服务器。
 
-![image](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy82MTUyNTk1LWYxZTdlZTA5MDdiZjJhMTUucG5nP2ltYWdlTW9ncjIvYXV0by1vcmllbnQvc3RyaXAlN0NpbWFnZVZpZXcyLzIvdy8xMjQw)
+​		可以这么认为，对于正向代理，代理服务器和客户端处于同一个局域网内；而反向代理，代理服务器和源站则处于同一个局域网内。
+
+## 2. 安装
+
+```java
+// 1. 依赖
+yum -y install make zlib zlib-devel gcc-c++ libtool  openssl openssl-devel
+
+// 2. 下载
+wget http://nginx.org/download/nginx-1.6.2.tar.gz
+
+// 3.编译和安装makefile
+./configure --prefix=/usr/local/nginx && make && make install
+
+// 在usr/local/nginx/sbin 下面就有一个nginx编译后的程序
+// 测试命令 , 启动只需要去掉-t
+// sudo ./nginx -c /usr/local/nginx/conf/nginx.conf -t
+```
+
 ## 3.负载均衡的实现
 > - 轮询
 > - 权重
@@ -209,10 +224,33 @@ location = /404.html {
         proxy_read_timeout 1000;
     }
 
+#### 正向代理
 
-​    
-    upstream www.xxx.com{
-      server 127.0.0.1:8050 weight=2;
-      server 127.0.0.1:8060 weight=1;
-    }
+   ```java
+server {
+        resolver 192.168.0.1;
+        location / {
+                proxy_pass http://$http_host$request_uri;
+        }
+}
+   ```
 
+`resolver`表示DNS服务器
+`location`表示匹配用户访问的资源，并作进一步转交和处理，可用正则表达式匹配
+`proxy_pass`表示需要代理的地址
+`$http_host` 表示用户访问资源的主机部分
+`$request_uri `表示用户访问资源的URI部分。
+如，http://nginx.org/download/nginx-1.6.3.tar.gz，则$http_host=nginx.org，$request_uri=/download/nginx-1.6.3.tar.gz。
+
+#### 反向daili
+
+```java
+server {
+        server_name www.baidu.com;
+        location / {
+                proxy_pass http://www.baidu.com/;
+        }
+}
+```
+
+这个类似于修改host文件的效果 , 你访问www.baidu.com会被代理到http://www.baidu.com/

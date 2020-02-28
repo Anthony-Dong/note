@@ -1,8 +1,10 @@
-# JUC - CountDownLatch  启动器
+# JUC - CountDownLatch & CyclicBarrier  线程计数器
+
+## `CountDownLatch `
 
 > ​	CountDownLatch是一个同步工具类，它允许一个或多个线程一直等待，直到其他线程执行完后再执行。例如，应用程序的主线程希望在负责启动框架服务的线程已经启动所有框架服务之后执行。
 
-其实这个玩意跟 `java.util.concurrent.Semaphore` 很相似 , 但是又不相似 , 他使用的是`AQS` , 一个多线程共享的状态量 . 
+其实这个玩意跟 `java.util.concurrent.Semaphore` 很相似 , 但是又不相似 , 他使用的是`AQS` , 一个多线程共享的状态量 .  如果你玩过 `Golang`的话, 和他的 `sync.waitgroup` 很相似近乎一模一样. 但是CountDownLatch少一个功能.
 
 #### 构造方法 
 
@@ -135,3 +137,135 @@ Working now ...Thread-3
 Working now ...Thread-4
 Finished.
 ```
+
+
+
+## 做一个线程状态管理器
+
+现在我们对 X, Y 进行累加10万次, 但是我们不知道这俩线程啥时候结束. 
+
+```java
+private static int x = 0;
+private static int y = 0;
+
+public static void main(String[] args) throws InterruptedException {
+    new Thread(() -> {
+        while (x < 100000) {
+            x++;
+        }
+    }).start();
+
+    new Thread(() -> {
+        while (y < 100000) {
+            y++;
+        }
+    }).start();
+
+    System.out.println(String.format("terminal  x : %d ,y : %d.", x, y));
+}
+```
+
+我们就这么执行 , 会发现什么  输出可能每个人不一致,主线程是不会等待 , 那俩子线程执行完毕的, 所以需要. 
+
+```java
+terminal  x : 5190 ,y : 0.
+```
+
+
+
+但是我们加以修饰 . 
+
+```java
+private static int x = 0;
+private static int y = 0;
+
+public static void main(String[] args) throws InterruptedException {
+    CountDownLatch BOOT = new CountDownLatch(2);
+
+    new Thread(() -> {
+        while (x < 100000) {
+            x++;
+        }
+        BOOT.countDown();
+    }).start();
+
+    new Thread(() -> {
+        while (y < 100000) {
+            y++;
+        }
+        BOOT.countDown();
+    }).start();
+
+    BOOT.await();
+    System.out.println(String.format("terminal  x : %d ,y : %d.", x, y));
+}
+```
+
+输出呢 :  所以满足我们的预期. 
+
+```java
+terminal  x : 100000 ,y : 100000.
+```
+
+
+
+## `CyclicBarrier`
+
+`Cyclic` 是循环的意思 , 意思就是循环呗.  `barrier` 是屏障的意思. 
+
+构造器 : 
+
+```java
+CyclicBarrier barrier = new CyclicBarrier(2, new Runnable() {
+            @Override
+            public void run() {
+               // todo
+            }
+        });
+```
+
+就俩参数, 第一个参数意思就是 `parties` 指的是成员数量.  第二个参数指的是成员数如果达到了2 , 就触发这个runnable . 
+
+成员数 : 其实是指的 waiting中的线程,  所以他就是这个这意思. 当waiting中的线程到达了2 , 就触发runnable . 到了就触发 . 循环往复
+
+```java
+public class TestCyclicBarrier {
+
+    public static void main(String[] args) {
+        CyclicBarrier barrier = new CyclicBarrier(2, new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("你俩过去吧");
+            }
+        });
+
+        IntStream.range(0, 4).forEach(e -> new Thread(() -> {
+            try {
+                ThreadLocalRandom random = ThreadLocalRandom.current();
+                int x = random.nextInt(1000);
+                TimeUnit.MILLISECONDS.sleep(random.nextInt(x));
+                barrier.await();
+                System.out.println(Thread.currentThread().getName() + " : 等待" + x + "ms");
+            } catch (InterruptedException | BrokenBarrierException e1) {
+                e1.printStackTrace();
+            }
+        }).start());
+    }
+}
+```
+
+输出 : 
+
+```java
+你俩过去吧
+Thread-2 : 等待16ms
+Thread-3 : 等待69ms
+你俩过去吧
+Thread-1 : 等待574ms
+Thread-0 : 等待259ms
+```
+
+
+
+基本就这个用法,  `barrier.getNumberWaiting()` 返回当前等待中的线程数 , 那个reset最好别用/ 
+

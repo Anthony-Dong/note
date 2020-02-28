@@ -1,6 +1,6 @@
 # Golang - 方法与函数
 
-> ​	其实就是一字之差 , 函数属于任何人, 方法属于对象
+>  其实就是一字之差 , 函数是一个指针变量, 方法是一个对象的(面向对象的产物,比如` a.run(100)`) , 懂了吧. 
 
 ## 1. 函数
 
@@ -38,7 +38,7 @@ fmt.Println(arr)  //[5 4 3 2 1 0]
 
 ### 匿名函数
 
-什么是匿名函数 , 就死没有名字呗 , 类似于Java的匿名内部类 , 或者直接说Lambda也可以 , 就是函数没有名字 , 就是函数没有名字
+什么是匿名函数 , 就死没有名字呗 ,  或者直接说Lambda也可以 , 就是函数没有名字 , 就是函数没有名字
 
 ```go
 var f1 = func(x, y int) (int) {
@@ -53,10 +53,12 @@ fmt.Println(sum)
 
 ### 立即执行函数
 
-Golang中的写法就是下面的样子 , 他呢很简单, 三部分组成 , 第一部分填充参数, 第二部分就是函数体, 第三部分就是传参
+其实就是只允许一次, 不能重复使用. 
+
+他呢很简单, 三部分组成 , 第一部分填充参数, 第二部分就是函数体, 第三部分就是传参
 
 ```go
-func(args) {
+返回值:=func(args)(返回类型){
     //body
 }(args)
 ```
@@ -64,50 +66,95 @@ func(args) {
 举个例子
 
 ```go
-for x := 0; x < 10; x++ {
-    func(i int) {
-        fmt.Printf("%d\t",i)
-    }(x+10)
+s := func(s string) string {
+    fmt.Println("调用我了 : ",s)
+    return s
+}("a")
+
+fmt.Println(s)
+```
+
+输出
+
+```go
+调用我了 :  a
+a
+```
+
+### 函数对象
+
+每一个函数都是一个对象, 他可以互相传递, 所以可以当做参数, 当做返回值. 都可以 
+
+记住func变量他就是一个指针, 懂了吧, 怎么区分一个变量是不是指针, 你用过编辑器的拿到func对象输入 `func==nil` , 看他提不提示异常, 提示了就说明是指针. 
+
+#### 作为参数
+
+```go
+/**
+传入一个函数 来处理我们传入的参数 , 打印一下他的地址
+ */
+func fun1(f func(string) string, s string) string {
+	fmt.Printf("%p\n", f)
+	return f(s)
+}
+```
+
+实现 . 
+
+```go
+func main() {
+	// 创建一个函数对象指针
+	fun := func(s string) string {
+		return strings.Join(strings.Split(s, " "), "-")
+	}
+
+	// 传递
+	res := fun1(fun, "hello world")
+
+	// 打印
+	fmt.Printf("%p\n", fun)
+
+    // 结果.
+	fmt.Printf("result : %s\n", res)
+}
+```
+
+输出 : 说明啥.... 
+
+```go
+0x494950
+0x494950
+result : hello-world
+```
+
+#### 作为返回值 ,这个也很方便.
+
+```go
+func fun2(name string) func(string) string {
+	return func(s string) string {
+		// 这里的name就是一种闭包行为
+		return name + " run " + s
+	}
+}
+
+func main() {
+    // 创建一个函数
+	fun := fun2("fun2")
+    // 使用
+	res := fun("hello")
+	fmt.Println(res)
 }
 ```
 
 输出
 
 ```go
-10	11	12	13	14	15	16	17	18	19	
+fun2 run hello
 ```
-
-### 函数参数
-
-```go
-// 里面执行
-func f2(f1 func(int, int), x1, x2 int) {
-	f1(x1, x2)
-}
-
-// 返回值函数
-func f3(f1 func(int, int)(int), x1, x2 int)(int) {
-	return f1(x1, x2)
-}
-
-
-func f4(f1 func(int, int) (int), x1, x2 int) (int) {
-	return f1(x1, x2)
-}
-
-
-func f5(f1 func(int, int) (int), x1, x2 int) (func() (int)) {
-	return func() int {
-		return f1(x1, x2)
-	}
-}
-```
-
-
 
 ### 闭包
 
-就是参数 从内到外找 , 么了 . 
+就是参数 从内到外找 , 么了 .  所以就近原则. 
 
 ## 2. 方法
 
@@ -131,13 +178,11 @@ func main() {
 }
 ```
 
-上面的代码里那个附加的参数s，可以认为是Java中的this关键字 , 这个在go里面叫做接收器 , 我们的写法他相当于拷贝了一个Singer对象给getName方法
-
-
+上面的代码里那个附加的参数s，可以认为是Java中的this关键字 , 这个在go里面叫做接收器 , 我们的写法他相当于拷贝了一个Singer对象给getName方法.
 
 ### 指针对象的方法
 
-当调用一个函数时，会对其每一个参数值进行拷贝，如果一个函数需要更新一个变量，或者 函数的其中一个参数实在太大我们希望能够避免进行这种默认的拷贝，这种情况下我们就需要用到指针了。
+当调用一个函数时，会对其每一个参数值进行拷贝，如果一个函数需要更新一个变量，或者函数的其中一个参数实在太大我们希望能够避免进行这种默认的拷贝，这种情况下我们就需要用到指针了。
 
 ```go
 type Singer struct {
@@ -162,35 +207,59 @@ func main() {
 其实有心的人会发现不需要指针变量也可以对其修改的, 所以改成了下面的 ,也是可以编译成功的 ,原因如下
 
 ```go
-singer := Singer{name: "张靓颖"}
+func main() {
+    singer := Singer{name: "张靓颖"}
 
-fmt.Println(singer.name)
+    fmt.Println(singer.name)
 
-singer.setName("邓紫棋")
+    singer.setName("邓紫棋")
 
-fmt.Println(singer.name)
+    fmt.Println(singer.name)
+}
 ```
 
-go语言本身在这种地方会帮到我们,如果接收器s是 一个Singer类型的变量，并且其方法需要一个Singer指针作为接收器，编译器会隐式地帮我们用&s去调用setName这个方法 , 这种简写方法只适用于“变量.
+> ​	go语言本身在这种地方会帮到我们,如果接收器s是 一个Singer类型的变量，并且其方法需要一个Singer指针作为接收器，编译器会隐式地帮我们用&s去调用setName这个方法 , 这种简写方法只适用于“变量".
 
-摘抄一段话 : 
+## 3. Function Type
 
-译注：	作者这里说的比较绕，其实有两点：
-
-1.	不管你的method的receiver是指针类型还是非指针类型，都是可以通过指针/非指针类型 进行调用的，编译器会帮你做类型转换。
-2.	 在声明一个method的receiver该是指针还是非指针类型时，你需要考虑两方面的内部，第 一方面是这个对象本身是不是特别大，如果声明为非指针变量时，调用会产生一次拷贝；第二方面是如果你用指针类型作为receiver，那么你一定要注意，这种指针类型指向的始终是一块内存地址，就算你对其进行了拷贝。熟悉C或者C艹的人这里应该很快能明白。
-
-
-
-其中这个receive可以为nil,为空指针
+定义一个function-type , 他对比接口的区别就是他只有一个方法而已, 其他都一样的 . 他需要传入一个匿名函数(跟Java特别像) , 但是它有着匿名函数没有的功能, 他同时也是一个对象 . 
 
 ```go
-var singers Singer
-name := singers.getName()
-fmt.Println("name : ",name) // 输出空,但是不报错
+type HandlerString func(string, []string) string
 ```
 
+也可以作为对象. 
 
+```go
+func (fun HandlerString) Merger(w string, r []string) {
+    // 验证
+    fmt.Printf("%p\n",fun)
+    // 调用
+	fun(w, r)
+}
+```
 
+对于`Function Type` , 他是一个指针对象. 
 
+怎么说呢. 我们可以 
+
+```go
+func main() {
+
+	fun := HandlerString(func(s string, arr []string) string {
+		return "ok"
+	})
+
+	fmt.Printf("%p\n",fun)
+
+	fun.test("",nil)
+}
+```
+
+输出 : 
+
+```go
+0x492be0
+0x492be0
+```
 

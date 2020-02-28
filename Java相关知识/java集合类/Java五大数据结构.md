@@ -267,7 +267,7 @@ HashTable容器使用synchronized来保证线程安全，但在线程竞争激�
 - 基于 HashMap 实现的 
 - 可以看看我的[这篇文章](https://anthony-dong.github.io/post/linkedhashmap-yuan-li-fen-xi/) : https://anthony-dong.github.io/post/linkedhashmap-yuan-li-fen-xi/
 
-## 4.Queue
+## 4. Queue
 
 > ​	队列在于你走向高级工程师必须走的一步 . 一开始我们对于他并不了解,但是你会发现并发包里面一堆关于队列的类,你就知道了他的关键所在,先进先出的使用场景很常见的
 >
@@ -290,30 +290,28 @@ HashTable容器使用synchronized来保证线程安全，但在线程竞争激�
 
 #### 1. LinkedList 
 
-`LinkedList`是链表结构，在添加和删除元素时具有比`ArrayList`更好的性能。但是我们注意一下, 为什么拿到队列里谈 , 主要是因为他的 `addFirst()` 方法和 `removeLast()`方法可以形成一个队列结构
+`LinkedList`是链表结构，队列呢也是一个列表结构,继承关系上 , LinkedList实现了Queue , 所以对于Queue来说 , 
+
+添加是 `offer(obj)` , 删除是 `poll()`  ,  获取队头(不删除)是 `peek()`  . 
 
 ```java
-@Test
-public void testLinkedList(){
+public static void main(String[] args) {
+    Queue<Integer> queue = new LinkedList<>();
 
-    LinkedList<Integer> lists = new LinkedList<>();
+    queue.offer(1);
+    queue.offer(2);
+    queue.offer(3);
 
-    lists.addFirst(1);
-    lists.addFirst(2);
-    lists.addFirst(3);
-
-    System.out.println(lists.removeLast());
-    System.out.println(lists.removeLast());
-    System.out.println(lists.removeLast());
+    System.out.println(queue.poll());
+    System.out.println(queue.poll());
+    System.out.println(queue.poll());
 }
-
-// 输出
-1, 2, 3
+// 1, 2 , 3 
 ```
 
 #### 2. PriorityQueue
 
-PriorityQueue维护了一个有序列表,插入或者移除对象会进行Heapfy操作,默认情况下可以称之为小顶堆。当然，我们也可以给它指定一个实现了 `java.util.Comparator` 接口的排序类来指定元素排列的顺序。
+PriorityQueue维护了一个有序列表,插入或者移除对象会进行Heapfy操作,**默认情况下可以称之为小顶堆**。当然，我们也可以给它指定一个实现了 `java.util.Comparator` 接口的排序类来指定元素排列的顺序。
 
 PriorityQueue 是一个无界队列 , 当你设置初始化大小还是不设置 , 都不影响他继续添加元素
 
@@ -371,7 +369,9 @@ PriorityQueue 是一个无界队列 , 当你设置初始化大小还是不设置
   >
   > ​	  **ConcurrentLinkedQueue**是一个线程安全的非阻塞队列，基于链表实现。java并没有提供构造方法来指定队列的大小，因此它是无界的。为了提高并发量，它通过使用更细的锁机制，使得在多线程环境中只对部分数据进行锁定，从而提高运行效率。他并没有阻塞方法,take和put方法.注意这一点
 
-### 6. 简要概述BlockingQueue常用的五个实现类
+### 6. 简要概述BlockingQueue常用的七个实现类
+
+> ​	有一个是 JDK1.7才加入的, 所以常见的就六个
 
 #### 1. ArrayBlockingQueue
 
@@ -381,7 +381,7 @@ PriorityQueue 是一个无界队列 , 当你设置初始化大小还是不设置
 
 分为两种情况 , 第一种构造函数指定大小, 他是一个有界队列 , 第二种情况,不指定大小他可以称之为无界队列, 队列最大值为`Integer.MAX_VALUE`
 
-#### 3. PriorityBlockingQueue 
+#### 3. PriorityBlockingQueue (还有一个双向的LinkedBlockingDeque)
 
 他是一个无界队列 , 不管你使用什么构造函数 ..
 
@@ -389,48 +389,72 @@ PriorityQueue 是一个无界队列 , 当你设置初始化大小还是不设置
 
 #### 4. SynchronousQueue
 
-这个队列很优秀 , 就是不存储元素 , 当你一个线程去调用 put或者take方法会阻塞的 , 俺也不知道有啥用  .... 看不懂 , 但是他确实有点用 , 比如
+这个队列类似于Golang的channel , 也就是chan ,跟无缓冲区的chan很相似. 比如take和put操作就跟chan一模一样. 但是区别在于他的poll和offer操作可以设置等待时间. 
+
+如果你学过golang的话. 应该理解 . 我写个例子
 
 ```java
-SynchronousQueue<Integer> queue = new SynchronousQueue<Integer>(true);
-
-new Thread(() -> {
-    try {
-        queue.put(1);
-        System.out.println("执行了 添加" + Thread.currentThread().getName());
-    } catch (InterruptedException e) {
-        e.printStackTrace();
-    }
-}).start();
-
-
-new Thread(() -> {
-    try {
-        queue.take();
-        System.out.println("执行了 移除"+ Thread.currentThread().getName());
-    } catch (InterruptedException e) {
-        e.printStackTrace();
-    }
-}).start();
-
-new Thread(() -> {
-    try {
-        queue.put(1);
-        System.out.println("执行了 添加" + Thread.currentThread().getName());
-    } catch (InterruptedException e) {
-        e.printStackTrace();
-    }
-}).start();
-
+func main() {
+	ch := make(chan int, 0)
+	start := time.Now().UnixNano()
+	go func() {
+		time.Sleep(time.Millisecond * 500)
+		ch <- 1
+	}()
+	x := <-ch
+	fmt.Printf("msg : %d , spend : %dms\n", x, (time.Now().UnixNano()-start)/1e6)
+}
+// 输出
+// msg : 1 , spend : 500ms
 ```
 
-输出
+那么换而言之 , Java呢 
 
 ```java
-执行了 添加Thread-0
-执行了 移除Thread-1
-... 阻塞中
+public class TestSync {
+
+    public static void main(String[] args) throws InterruptedException {
+        SynchronousQueue<Integer> queue = new SynchronousQueue<>();
+        long start = System.currentTimeMillis();
+        new Thread(() -> {
+            try {
+                Integer poll = queue.take();
+                System.out.printf("receive : %d , spend : %dms.\n", poll, System.currentTimeMillis() - start);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }).start();
+
+        new Thread(() -> {
+            try {
+                //sleep 2000ms
+                TimeUnit.SECONDS.sleep(2);
+                queue.put(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+
+// 输出 
+//receive : 1 , spend : 2060ms.
 ```
+
+但是他和chan不同的是, 他的poll操作吧, (类似于golang的 select case 操作) , 等不到放弃, 返回一个null. 
+
+但是唯一不同的是 他可以指定等待时间.超过等待时间再放弃. 
+
+```java
+Integer poll = queue.poll(1000,TimeUnit.MILLISECONDS);
+```
+
+这个就是等待1000ms  , 等不到放弃了 . 
+
+像线程池中用 `SynchronousQueue` 使用的是 `offer(obj)`操作, 也就是说干脆插入不进去.因为他懒得等 , 但是offer可以指定等待时间的. 
+
+总结一下.  `take 和 put 一对,是死等待`  ,  `poll和offer灵活, 活着来`
 
 #### 5. DelayQueue
 
@@ -469,9 +493,26 @@ static class Person implements Delayed {
 queue.poll() = null
 ```
 
+#### 6. LinkedTransferQueue (重点)
 
+> ​	JDK1.7 加入的无界队列 , 亮点就是无锁实现的,性能高 .
 
-### 6.(小顶堆) 优先队列 PriorityQueue 的实现
+Doug Lea 说这个是最有用的 BlockingQueue 了  , 性能最好的一个 .  [Doug Lea说](https://yq.aliyun.com/go/articleRenderRedirect?url=http%3A%2F%2Fcs.oswego.edu%2Fpipermail%2Fconcurrency-interest%2F2009-February%2F005888.html)从功能角度来讲，LinkedTransferQueue实际上是ConcurrentLinkedQueue、SynchronousQueue（公平模式）和LinkedBlockingQueue的超集。
+
+**他的 transfer方法 表示生产必须等到消费者消费才会停止阻塞. 生产者会一直阻塞直到所添加到队列的元素被某一个消费者所消费（不仅仅是添加到队列里就完事）** 
+
+**同时我们知道 上面那些BlockingQueue使用了大量的 condition和 lock , 这样子效率很低  ,  而LinkedTransferQueue则是无锁队列.** 
+
+他的核心方法其实就是 `xfer()方法`,基本所有方法都是围绕着这个进行的 , 一般就是 SYNC ,ASYNC,NOW ,来区分状态量. 像put,offer,add 都是 `ASYNC` , 所以不会阻塞.  下面几个状态对应的变量. 
+
+```java
+private static final int NOW   = 0; // for untimed poll, tryTransfer(不阻塞)
+private static final int ASYNC = 1; // for offer, put, add(不阻塞)
+private static final int SYNC  = 2; // for transfer, take(阻塞)
+private static final int TIMED = 3; // for timed poll, tryTransfer (waiting)
+```
+
+### 7.(小顶堆) 优先队列 PriorityQueue 的实现
 
 > ​	小顶堆是什么 :  任意一个非叶子节点的权值，都不大于其左右子节点的权值
 
@@ -565,24 +606,21 @@ static void swap(int[] tree, int max, int i) {
 }
 ```
 
-### 7.常用的几个方法
+### 8.常用的几个方法
 
-- **add**         添加一个元索(其实调用的就是offer 方法) ,返回boolean值 ,但是如果队列已满，则抛出一个IIIegaISlabEepeplian异常 
-- **remove**   移除并返回队列头部的元素    如果队列为空，则抛出一个NoSuchElementException异常 　　
-- **element**   返回队列头部的元素               如果队列为空，则抛出一个NoSuchElementException异常 　　
 - **offer**        添加一个元素并返回true        如果队列已满，则返回false 　　
 - **poll**          移除并返问队列头部的元素    如果队列为空，则返回null 　　
-- **peek**        返回队列头部的元素                如果队列为空，则返回null 　　
+- **peek**        返回队列头部的元素                如果队列为空，则返回null
 - **put**           添加一个元素                           如果队列满，则阻塞　 BlockQueue特有的
 - **take**         移除并返回队列头部的元素     如果队列为空，则阻塞 (像队头移除一个元素,并且整体向前移动,保证对头不为空)　BlockQueue特有的
 
-
-
 ## 5. Stack
 
-栈结构属于一种先进者后出 , 先进去的会压到栈低 , 出去的时候只有一个出口就是栈顶 , 返回栈顶元素,这个操作称为pop , 
+栈结构属于一种先进者后出,类似于一个瓶子 , 先进去的会压到栈低(push操作) , 出去的时候只有一个出口就是栈顶 , 返回栈顶元素,这个操作称为pop , 
 
-### 1. Java 提供的 
+### 1. Stack类
+
+> ​	stack 继承自`Vector` , 所有方法都加入了 sync 修饰, 使得效率很低  ,线程安全. 
 
 ```java
 @Test
@@ -607,6 +645,8 @@ public void testStack() {
 ```
 
 ### 2. 通过LinkedList 实现
+
+> ​	但是LInkedList很好的实现了这个 , 同时他是个线程不安全的类. 
 
 ```java
 @Test
