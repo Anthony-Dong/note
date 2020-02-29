@@ -1,3 +1,7 @@
+# Netty 中的一些细节问题
+
+
+
 
 > ​	有的时候我们看netty并没有研究那么细致, 因为我们没有基于他开发过东西,大多都是些一些小型demo , 那么此时我就把我开发时遇到的问题总结一下 
 >
@@ -195,3 +199,79 @@ NioSocketChannel → EpollSocketChannel
 
 
 其实对于Java的epoll来说,  如果select的轮询结果为空，也没有wakeup操作或者新的消息需要处理，则说明是个空轮询，可能会**触发JDK的epoll-bug** ,它会导致Selector的空轮询，是IO线程处于100%状态。
+
+
+
+## boss / worker 
+
+我们看一张图. 
+
+![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/7ca48721-a564-4861-9ccf-01c60af9885d.jpg)
+
+这就是 Netty 的 boss/worker模型. 
+
+boss线程主要是监听 selector.accept事件., 也就是注册事件  
+
+然后其他事件会交给 worker去处理事件. 
+
+具体实现在 `io.netty.channel.nio.NioEventLoop#run` 这个方法里面. 不管是worker . 还是 boss, 都是死循环. 他们只负责他们对应的事件. 
+
+注意一下.  事件 : 
+
+Netty 只关注与一下事件. 第一个 `OP_CONNECT` 是客户端的事件 / 
+
+第二个是 `OP_WRITE` 写事件  ,  第三个是 `OP_READ`/`OP_ACCEPT` 事件.  /服务器客户端
+
+所以根据事件进行传播, 
+
+![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/4fa43ee9-2064-4433-a205-904a4c3c258d.png?x-oss-process=style/template01)
+
+
+
+
+
+我们再看 :  下面这个是监听到连接事件.  然后他传递的是一个socketchannel. 
+
+你还记得我们注册的时候会 `.channel(NioServerSocketChannel.class)` 就是这个. 
+
+![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/c63a591f-d1a0-4f70-bf30-1b6f3d2751ff.png?x-oss-process=style/template01)
+
+
+
+
+
+这个会分发给 . 线程去处理.  我们看看 `io.netty.bootstrap.ServerBootstrap.ServerBootstrapAcceptor#channelRead`
+
+这里就是处理的 socketcchannel.
+
+```java
+public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    final Channel child = (Channel) msg;
+
+    child.pipeline().addLast(childHandler);
+
+    setChannelOptions(child, childOptions, logger);
+
+    for (Entry<AttributeKey<?>, Object> e: childAttrs) {
+        child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
+    }
+
+    try {
+        childGroup.register(child).addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
+                if (!future.isSuccess()) {
+                    forceClose(child, future.cause());
+                }
+            }
+        });
+    } catch (Throwable t) {
+        forceClose(child, t);
+    }
+}
+```
+
+
+
+这么一看其实客户端服务端公用的一套代码 . 只是具体的选择不同罢了. 
+

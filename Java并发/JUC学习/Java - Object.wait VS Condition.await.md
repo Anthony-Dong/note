@@ -318,23 +318,83 @@ public class BlockStack {
 
 
 
-基本 流程: 就是下图所示, 希望大家可以参考一下
+我们来分析一下这个执行流程.  前提是T1 比 T2先执行
 
--> `lock()` ->` tryaq()` - > `拿到锁`  (拿不到锁的加入到等待队列中去了)
+```java
+public class AQS {
 
--> `await()方法`-> `加入到Condition队列中`-> `park()`->`(等待其他线程帮助unpark)` ->`tryacq()获取锁`-> `拿到锁成功`->`结束wait`
+    public static void main(String[] args) {
+        final Lock lock = new ReentrantLock();
+        final Condition full = lock.newCondition();
+        // t1线程
+        new Thread(() -> {
+            lock.lock();
+            try {
+                full.await();
+            } catch (InterruptedException e) {
+                //
+            } finally {
+                lock.unlock();
+            }
+        },"t1").start();
+        // t2线程
+         new Thread(() -> {
+            lock.lock();
+            try {
+                // 
+                full.signal();
+                
+            } finally {
+                lock.unlock();
+            }
+       },"t2").start();
+    }
+}
+```
 
-->  `unlock () ` ->` release()` -> `释放锁` -> `unpark(等待队列第一个节点). `
+假设T1拿锁的时间 优于 T2执行. 如果执行满了. 就会无脑的await下去/ 
+
+park 操作是 当前线程将自己执行waiting , 你说难不难,看过科幻片没有就是自己冰封自己,无休止的睡眠下去. 跟sleep一样. 只是他没有指定时间. 这时候就需要一个人,就是另一个人,把他唤醒.就是unpark操作了..
+
+---
+
+`T1.Lock() `  ->` tryaq()` ->`t1拿到锁 ` ->`T1.FULL.await()` -> ....
+
+---
+
+`T2.Lock()`  -> `tryaq() `  -> 由于T1已经拿到锁了,自己只能长眠了 `  -> (睡哇睡.....)    ` -> `(TAG1) 将自己唤醒了`-> 继续操作, 也就是走到了 `T2.FULL.signal` .
+
+---
+
+`T1.FULL.await()` -> `将自己加入到从condition队列` -> `释放锁(TAG1)` ->  `自己park(),长眠下去`  -> (睡哇睡) -> `(TAG2)将自己唤醒 ` -> `第一件事检查自己是否被中端`   ->`(判断head是不是自己),再尝试去获取锁` -> `拿到锁自然就结束了`(中间过程unpark后 , 不一定完事大吉了,可能是被推到了后面,也就是继续park,具体实现在 `AQS.acquireQueued` )   ----> 真正拿到锁才会继续执行...... 
+
+---
+
+ `T2.FULL.signal` -> `找到condition队列中的第一个节点,移除(也就是T1线程)` ->  `将T1线程加入到阻塞队列中(核心方法在AQS的eq方法中,线程安全操作,所以不保证T1加入到等待队列的head部分)` , 执行完毕了就.
+
+---
+
+`T2.unlock ()` -> `release()` -> `释放锁(TAG2)`  执行完毕.
+
+---
+
+`T1.unlock`  结束完成. 
 
 
 
--> `signal()` ->  `找到Condition队列中的第一个节点` - > `将await线程从condition队列放入到阻塞队列中(核心方法在AQS的eq方法中) ->  unpark(await线程) `
+**拿锁的过程 : **
+
+> ​	拿锁过程很简单, 状态量如果可以修改, 就成功拿锁, 将AQS的占用线程设置为当前线程. 
+>
+> ​	如果状态量修改失败. 加入AQS等待队列. 然后调用park操作, 将自己睡眠. 
+
+**释放锁的流程 :**
+
+> ​	注意这个全部操作是安全的, 也就是不需要CAS , 将AQS占用线程设置为NULL , 重置状态量 ,  然后去看等待队列, 看看里有没有人 , 有人简单, 直接把第一个人叫起来, (unpack那个人) , 就好了. 完成工作返回. 
 
 
 
 
-
- 
 
 > ​	总结 : AQS其实不难, 难的是思想, 如何安全的插入队列,在不使用锁的情况下, 如何实现公平 , 如何高效的维护队列. 这些都是难题.  当你懂了AQS 其实Condition并不难. 
 

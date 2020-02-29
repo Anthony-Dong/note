@@ -370,7 +370,7 @@ serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
 // 死循环
 while (true) {
-    // 这个地方是一个多路复用,依靠操作系统提供的多路复用实现的.
+    // 这个地方是一个网络模型, 有select,poll,epoll.默认并不是epoll.需要引入我下面图片有.
     // selector.select()会一直阻塞，直到有channel相关操作就绪
     selector.select();
     // SelectionKey关联的channel都有就绪事件
@@ -428,6 +428,10 @@ while (true) {
 ```
 
 > **tips**: Java NIO基于Selector实现高性能网络I/O这块使用起来比较繁琐，使用不友好，一般业界使用基于Java NIO进行封装优化，扩展丰富功能的Netty框架来优雅实现
+
+关于引入epoll 多路复用模型  , 就是一下参数了. 
+
+![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/594b080f-b042-4756-a362-b7120ff0436d.png)
 
 ## 高性能I/O优化
 

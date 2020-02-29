@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html manifest="index.appcache">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="referrer" content="none">
+    <title>MarkDown-Online</title>
+  </head>
+  <body data-mode="edit">
+    <div class="ui-layout-toggler" id="north-toggler"></div>
+    <div class="ui-layout-south">
+      <div class="ui-layout-center">
+        <div id="editor"></div> <!-- ±à¼­Æ÷ -->
+      </div>
+      <div class="ui-layout-toggler" id="east-toggler"></div>
+      <div class="ui-layout-east">
+        <article class="markdown-body" id="preview" data-open-title="Hide Preview" data-closed-title="Show Preview">
+        </article> <!-- ÊµÊ±Ô¤ÀÀ -->
+      </div>
+    </div>
+    <div class="theme-list"></div>
+    <script src="https://note.youdao.com/md/vendor-c7413287a3.js"></script>
+    <script src="https://note.youdao.com/md/index-3abeeca70a.js"></script>
+  </body>
+</html>
