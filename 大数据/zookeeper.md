@@ -434,5 +434,13 @@ public class ZookeeperApplicationListener implements ApplicationListener<Context
 
 
 
+## Zookeeper的选举机制
+
+文章 : [https://www.cnblogs.com/shuaiandjun/p/9383655.html](https://www.cnblogs.com/shuaiandjun/p/9383655.html)
+
+Zookeeper的Leader选举机制叫做 . FastLeaderElection
+
+其中 上诉说的可能是ZAB协议. 是分布式一致性算法. 
+
 
 

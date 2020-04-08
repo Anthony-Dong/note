@@ -36,8 +36,6 @@ func Create(name string) (*File, error) {
 }
 ```
 
-
-
 #### `func OpenFile(name string, flag int, perm FileMode)` 
 
 第二个参数 `flag `是下面的这几个 , 多个用 `|` 分开

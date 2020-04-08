@@ -292,20 +292,20 @@ producer.sendOneway(message);
 ### 3.过滤消息
 
 ```java
-        1. 消费方
-		// 3. 设置消息的描述,
-        // 指定topic, tag(可以选多个) ,这里执行过滤方法
-        // 3.1  || 表示选择
-        // 3.2  "*"  全部的tag
-        // 3.3  MessageSelector.bySql()  特殊选择 sql语法,可以去 官网去看
-        // consumer.subscribe("FilterTopic", "tag || tag2");
-        // consumer.subscribe("FilterTopic", "*");
-        // MessageSelector.bySql("key>8")
-		consumer.subscribe("FilterTopic", "*");
+1. 消费方
+// 3. 设置消息的描述,
+// 指定topic, tag(可以选多个) ,这里执行过滤方法
+// 3.1  || 表示选择
+// 3.2  "*"  全部的tag
+// 3.3  MessageSelector.bySql()  特殊选择 sql语法,可以去 官网去看
+// consumer.subscribe("FilterTopic", "tag || tag2");
+// consumer.subscribe("FilterTopic", "*");
+// MessageSelector.bySql("key>8")
+consumer.subscribe("FilterTopic", "*");
 
-		2. 提供方 
-		// 设置特殊属性
-        message.putUserProperty("key", "10");
+2. 提供方 
+// 设置特殊属性
+message.putUserProperty("key", "10");
 ```
 
 
@@ -359,44 +359,42 @@ producer.send(message, new MessageQueueSelector() {
 这时候就需要TransactionMQProducer
 TransactionMQProducer producer = new TransactionMQProducer("demo-produce");
 
+// 2. 设置 事务监听器(对事物的控制) 每当发送消息都会执行这一步
+producer.setTransactionListener(new TransactionListener() {
+    /**
+     *  执行的 事务方法 ,如果 状态为 UNKNOW  会调用 checkLocalTransaction进行判断
+     * @param message  消息对象( Half(prepare) message)
+     * @param o        o 是 自定义的消息参数 ( Custom business parameter)
+     * @return  COMMIT_MESSAGE 提交
+     *          ROLLBACK_MESSAGE  回滚
+     *          UNKNOW  未处理的状态 , 等待checkLocalTransaction调用
+     */
+    @Override
+    public LocalTransactionState executeLocalTransaction(Message message, Object o) {
+        if (StringUtils.equals(message.getTags(), "TAG1")) {
+            System.out.println(message.getTags());
+            return LocalTransactionState.COMMIT_MESSAGE;
+        }
+        if (StringUtils.equals(message.getTags(), "TAG2")) {
+            System.out.println(message.getTags());
+            return LocalTransactionState.ROLLBACK_MESSAGE;
+        }
+            System.out.println(message.getTags());
+            return LocalTransactionState.UNKNOW;
 
+    }
 
-        // 2. 设置 事务监听器(对事物的控制) 每当发送消息都会执行这一步
-        producer.setTransactionListener(new TransactionListener() {
-            /**
-             *  执行的 事务方法 ,如果 状态为 UNKNOW  会调用 checkLocalTransaction进行判断
-             * @param message  消息对象( Half(prepare) message)
-             * @param o        o 是 自定义的消息参数 ( Custom business parameter)
-             * @return  COMMIT_MESSAGE 提交
-             *          ROLLBACK_MESSAGE  回滚
-             *          UNKNOW  未处理的状态 , 等待checkLocalTransaction调用
-             */
-            @Override
-            public LocalTransactionState executeLocalTransaction(Message message, Object o) {
-                if (StringUtils.equals(message.getTags(), "TAG1")) {
-                    System.out.println(message.getTags());
-                    return LocalTransactionState.COMMIT_MESSAGE;
-                }
-                if (StringUtils.equals(message.getTags(), "TAG2")) {
-                    System.out.println(message.getTags());
-                    return LocalTransactionState.ROLLBACK_MESSAGE;
-                }
-                    System.out.println(message.getTags());
-                    return LocalTransactionState.UNKNOW;
-
-            }
-
-            /**
-             *
-             * 进行对UNKNOW状态的检测
-             * @param messageExt
-             * @return
-             */
-            @Override
-            public LocalTransactionState checkLocalTransaction(MessageExt messageExt) {
-                return LocalTransactionState.COMMIT_MESSAGE;
-            }
-        });
+    /**
+     *
+     * 进行对UNKNOW状态的检测
+     * @param messageExt
+     * @return
+     */
+    @Override
+    public LocalTransactionState checkLocalTransaction(MessageExt messageExt) {
+        return LocalTransactionState.COMMIT_MESSAGE;
+    }
+});
 
 ```
 

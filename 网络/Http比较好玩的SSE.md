@@ -1,8 +1,6 @@
-# Http比较好玩的SSE
+# Http协议的 SSE 实现推流
 
 > SSE全称叫 `Server-Sent Events（简称 SSE）` , 可以实现服务器端向客户推送消息. 但是客户端无法向服务器反馈消息. 只能反馈就是一个关闭流的信息 , 其实意思就是你中断网页请求 , 或者关闭浏览器. 服务器会写不出去消息,因为就中断了.  
-
-
 
 对比一下 websocket来说 
 
@@ -75,9 +73,7 @@ cur-time : Thu Feb 13 21:27:46 CST 2020
     ... 不断的出现....
 ```
 
-所以很方便实现了推送消息. 
-
-
+所以很方便实现了推送消息.   其中也可以使用 spring-mvc的 Mapping 进行处理, 我这里没有使用.
 
 
 
@@ -113,7 +109,7 @@ http.createServer(function (req, res) {
 }).listen(8844, "127.0.0.1");
 ```
 
-最后 `node server.js`  运行就行了   node是一个前端的虚拟机类似于. 可以运行js代码.用ts写的.
+最后 `node server.js`  运行就行了.
 
 
 

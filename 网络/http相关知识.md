@@ -1,6 +1,6 @@
 
 
-# HTTP 学习
+# HTTP 一些概念和操作简单学习(误区)
 
 > ​	HTTP是五层协议中最顶层 ,属于应用层协议 ,基于TCP编写的
 
@@ -92,3 +92,49 @@ public String get(@RequestBody Map<String, String> map) {
 然后就是 ` multipart/form-data` , 这种一般是来做文件上传的 ,他就有点特殊了 , 你可以看看他就请求体分割了, 然后通过特定个格式编码获取的. 
 
 ![](https://tyut.oss-accelerate.aliyuncs.com/image/2019-12-05/64978f44-e855-4b36-83e2-d467ac3ebbaf.jpg?x-oss-process=style/template01)
+
+
+
+## 重定向
+
+我们只知道 重定向是跳转页面.  前端跳转很简单. 直接一个a标签就行了. 
+
+那么后端呢 , 后端如何跳转. 你请求了一个api接口. 
+
+这里就告诉大家 , 这就是重定向.
+
+```java
+@GetMapping("/go/baidu")
+public void redirect(HttpServletResponse response) {
+    response.setStatus(301);
+    response.setHeader("Location", "http://www.baidu.com");
+}
+```
+
+我们发现响应是 .
+
+```java
+HTTP/1.1 301
+Location: http://www.baidu.com
+Content-Length: 0
+Date: Sun, 01 Mar 2020 09:05:43 GM
+```
+
+这都是浏览器一种根据协议处理的一种行为表现
+
+比如我们访问 `http://www.baidu.com`  , 此时会被跳转到
+
+```java
+HTTP/1.1 307 Internal Redirect
+Location: https://www.baidu.com/
+Non-Authoritative-Reason: HSTS
+```
+
+
+
+## 如何解决Mapping重复
+
+```java
+
+```
+

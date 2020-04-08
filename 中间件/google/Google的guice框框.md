@@ -452,7 +452,11 @@ main spend: 2015ms.
 
 
 
-> ​	其实这里也跟Spring的AOP一样, 都是需要一个MethodInvocation / ProceedingJoinPoint ,应该有印象吧.  使用很方便. 
+> ​	其实这里也跟Spring的AOP一样, 都是需要一个MethodInvocation , 只是Spring封装了一层罢了,应该有印象吧.  详情请看他的自己处理方式. 我感觉他封装了两层代理, 第一层代理在 `org.springframework.aop.framework.CglibAopProxy.DynamicAdvisedInterceptor`  , 然后就是 `org.aopalliance.intercept.MethodInterceptor` 做代理,实现回调接口, 基本是是基于aspectj的.  他封装太多了, 其实也不太好.  同时他也封装了一层 `MethodInvocation` 对应的是  `ReflectiveMethodInvocation` .  
+>
+> ​	但是Spring可以根据对象的特性 , 实现Java的代理和CGLIB的代理. 这个点赞. 
+>
+> ​	如果想学习Spring的AOP , 源码分析, 介意先学习CGLIB , 其次 ASPECTJ ,最后就好可以看懂了. 基本上就是这个. 
 
 
 

@@ -1,4 +1,4 @@
-# Java 的 Thread你真的了解吗
+# Java 的 Thread 你真的了解吗
 
 > ​	Java语言一共设置了10个级别的线程优先级（Thread.MIN_PRIORITY至Thread.MAX_PRIORITY）。在两个线程同时处于Ready状态时，优先级越高的线程越容易被系统选择执行。(这个是Java定义的, 但是操作系统另有实现, 不过是JVM的事)
 >
@@ -119,9 +119,9 @@ Java的 线程一共有六种状态  , 其实对于 new , runnable , terminated 
 
 ### 种类 :
 
-NEW  : Thread state for a thread which has not yet started.
+NEW  : Thread state for a thread which has not yet started.(执行实例化一个线程的操作后的状态)
 
-RUNNABLE  : Thread state for a runnable thread. 
+RUNNABLE  : Thread state for a runnable thread. A thread in the runnable state is executing in the Java virtual machine but it may be waiting for other resources from the operating system such as processor. (这里其实是你执行了start方法后的 , 但是启动线程其实分为两步, 第一步就是去准备一些资源吧, 此时处于就绪状态, 等真正分配好了,才会进入真正的启动过程, 所以启动一个线程的代价比较大)
 
 `BLOCKED  `:  Thread state for a thread blocked waiting for a monitor lock.(sync)
 

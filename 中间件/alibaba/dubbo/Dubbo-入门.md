@@ -57,32 +57,35 @@ Java RMI （Remote Method Invocation）- 远程方法调用，能够让**客户�
 
 ## 2. 快速开始
 
-### 1. Java的 RMI  , 我不会整, 跑不通, 可以百度
+maven 依赖
 
-
-
-### 2. Dubbo - Api 方式
+```xml
+<dependency>
+    <groupId>org.apache.dubbo</groupId>
+    <artifactId>dubbo</artifactId>
+    <version>2.7.3</version>
+</dependency>
+```
 
 #### 1. 对外提供的接口
 
 ```java
-public interface DemoService {
-    String sayName(String name);
+public interface EchoService {
+    String echo();
 }
 ```
 
 #### 2. 服务器端对接口的实现
 
 ```java
-public class DefaultService implements DemoService {
-	// 接口实现
-    public String sayName(String name) {
+public class EchoServiceImpl implements EchoService {
+    @Override
+    public String echo() {
         RpcContext rpcContext = RpcContext.getContext();
-        return String.format("Service [port : %d] %s(\"%s\") : Hello,%s",
+        return String.format("Service [port : %d] %s() : Hello,%s",
                 rpcContext.getLocalPort(),
                 rpcContext.getMethodName(),
-                name,
-                name);
+                "dubbo");
     }
 }
 ```
@@ -90,141 +93,56 @@ public class DefaultService implements DemoService {
 #### 4. 服务器(提供者)代码
 
 ```java
-package com.example;
+public class DubboServer {
 
-import com.alibaba.dubbo.config.*;
-import com.example.dubboprovider.service.DefaultService;
-import com.example.dubboprovider.service.DemoService;
-import org.junit.Test;
-
-import javax.xml.ws.soap.MTOM;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-
-/**
- * TODO
- *
- * @date:2019/12/11 21:25
- * @author: <a href='mailto:fanhaodong516@qq.com'>Anthony</a>
- */
-
-public class Provider {
-
-
-    @Test
-    public void provider() throws IOException {
-        // 1. 提供的服务对象
-        DemoService providerService = new DefaultService();
-
-        // 2. 当前服务配置
-        ApplicationConfig application = new ApplicationConfig();
-        application.setName("provider");
-
-
-        // 3. 注册中心配置 , NO_AVAILABLE , 采用直连的方式
-        RegistryConfig registry = new RegistryConfig();
-        registry.setAddress("N/A");
-
-
-        // 4. 服务提供者协议配置
-        ProtocolConfig protocol = new ProtocolConfig();
-        // 协议名称
-        protocol.setName("dubbo");
-        // 服务器地址
-        protocol.setHost("0.0.0.0");
-        // 端口
-        protocol.setPort(8888);
-        // 配置线程数
-        protocol.setThreads(200);
-
-
-        // 5. 暴露的方法 // 如果不写全部方法都暴露在外面
-        List<MethodConfig> methods = new ArrayList<MethodConfig>();
-        MethodConfig method = new MethodConfig();
-        method.setName("sayName");
-        // ms
-        method.setTimeout(10000);
-        // 重试次数
-        method.setRetries(0);
-        methods.add(method);
-
-
-        // 注意：ServiceConfig为重对象，内部封装了与注册中心的连接，以及开启服务端口
-        // 6. (核心对象) 服务提供者暴露服务配置
-        ServiceConfig<DemoService> service = new ServiceConfig<DemoService>(); // 此实例很重，封装了与注册中心的连接，请自行缓存，否则可能造成内存和连接泄漏
-        service.setApplication(application);
-        service.setRegistry(registry); // 多个注册中心可以用setRegistries()
-        service.setProtocol(protocol); // 多个协议可以用setProtocols()
-        service.setInterface(DemoService.class); // 暴露接口
-        service.setRef(providerService); // 设置提供的引用对象
-        service.setMethods(methods);
-        service.setVersion("1.0.0"); // 设置版本号
-
-
-        // 暴露及注册服务
-        service.export();
-
-
+    public static void main(String[] args) throws IOException {
+        ServiceConfig<EchoService> serviceConfig = new ServiceConfig<>();
+        // 暴露的服务-接口实例对象
+        serviceConfig.setRef(new EchoServiceImpl());
+        // 上下文-配置
+        serviceConfig.setApplication(new ApplicationConfig("dubbo-server"));
+        // 注册中心
+        serviceConfig.setRegistry(new RegistryConfig(RegistryConfig.NO_AVAILABLE));
+        // 通信协议-dubbo
+        serviceConfig.setProtocol(new ProtocolConfig("dubbo", 9999));
+        // 暴露一下
+        serviceConfig.export();
         System.in.read();
     }
 }
 ```
 
+查看日志 : 
+
+主要是我们是直连 , 所以`dubbo://192.168.28.1:9999/com.example.java_api.inter.EchoService` 就是我们直连的url
+
+```java
+19:17:28.673 [main] INFO org.apache.dubbo.config.AbstractConfig -  [DUBBO] Export dubbo service com.example.java_api.inter.EchoService to url dubbo://192.168.28.1:9999/com.example.java_api.inter.EchoService?anyhost=true&application=dubbo-server&bind.ip=192.168.28.1&bind.port=9999&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.example.java_api.inter.EchoService&methods=echo&pid=14500&register=true&release=2.7.3&side=provider&timestamp=1584703048520, dubbo version: 2.7.3, current host: 192.168.28.1
+19:17:28.698 [main] DEBUG org.apache.dubbo.common.extension.AdaptiveClassCodeGenerator -  [DUBBO] package org.apache.dubbo.remoting;
+```
+
+暴露URL
+
 #### 4. 引用方(消费者)实现
 
 ```java
-package com.example;
+public class DubboClient {
 
-import com.alibaba.dubbo.config.*;
-import com.alibaba.dubbo.rpc.RpcContext;
-import com.example.dubboprovider.service.DefaultService;
-import com.example.dubboprovider.service.DemoService;
-import org.junit.Test;
-
-
-/**
- * TODO
- *
- * @date:2019/12/11 21:25
- * @author: <a href='mailto:fanhaodong516@qq.com'>Anthony</a>
- */
-
-public class Consumer {
-
-
-    @Test
-    public void consumer() {
-
-        // 1. 当前服务配置
-        ApplicationConfig application = new ApplicationConfig();
-        application.setName("consumer");
-
-
-        //2. 配置注册中心 ,本地模式 , NO_AVAILABLE
-        RegistryConfig registry = new RegistryConfig();
-        registry.setAddress("N/A");
-
-
-        // 注意：ReferenceConfig为重对象，内部封装了与注册中心的连接，以及与服务提供方的连接
-        // 3. 实例化一个引用对象  引用远程服务
-        ReferenceConfig<DemoService> reference = new ReferenceConfig<DemoService>(); // 此实例很重，封装了与注册中心的连接，请自行缓存，否则可能造成内存和连接泄漏
-        reference.setApplication(application);
-        reference.setRegistry(registry);
-        // 直连方式
-        reference.setUrl("dubbo://192.168.28.1:8888/com.example.dubboprovider.service.DemoService");
-        reference.setInterface(DemoService.class);
-        reference.setVersion("1.0.0");
-
-
-        // 引用对象
-        DemoService referenceService = reference.get();
-        String dubbo = referenceService.sayName("Dubbo");
-
-        System.out.println(dubbo);
+    public static void main(String[] args) {
+        ReferenceConfig<EchoService> referenceConfig = new ReferenceConfig<>();
+        // 引用的接口
+        referenceConfig.setInterface(EchoService.class);
+        // 注册中心
+        referenceConfig.setRegistry(new RegistryConfig(RegistryConfig.NO_AVAILABLE));
+        // 直连
+        referenceConfig.setUrl("dubbo://192.168.28.1:9999/com.example.java_api.inter.EchoService");
+        // 上下文
+        referenceConfig.setApplication(new ApplicationConfig("default"));
+        // 获取代理对象
+        EchoService service = referenceConfig.get();
+        // 调用
+        System.out.println("service.echo() = " + service.echo());
     }
-
 }
 
 ```
@@ -232,7 +150,8 @@ public class Consumer {
 输出 : 
 
 ```java
-Service [port : 8888] sayName("Dubbo") : Hello,Dubbo
+19:22:36.773 [main] INFO org.apache.dubbo.config.AbstractConfig -  [DUBBO] Refer dubbo service com.example.java_api.inter.EchoService from url dubbo://192.168.28.1:9999/com.example.java_api.inter.EchoService?application=default&interface=com.example.java_api.inter.EchoService&lazy=false&pid=8304&register.ip=192.168.28.1&remote.application=&side=consumer&sticky=false, dubbo version: 2.7.3, current host: 192.168.28.1
+service.echo() = Service [port : 9999] echo() : Hello,dubbo
 ```
 
 
@@ -253,317 +172,56 @@ consumer : 核心就是 `ReferenceConfig` , 他是Dubbo 引用方唯一的消费
 
 
 
+## 4. 加入注册中心
 
+我们使用zookeeper. 因为一般通用都是使用这个. 
 
-## 4. Spring整合
+http://dubbo.apache.org/zh-cn/docs/user/references/registry/zookeeper.html
 
-1) provider.xml
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
-		http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd
-		http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
-	
-	// 协议+端口
-    <dubbo:protocol name="dubbo" port="20880"></dubbo:protocol>
-
-	// 注册地址
-    <dubbo:registry address="zookeeper://47.93.251.248:2181"></dubbo:registry>
-	
-     // 应用名
-    <dubbo:application name="provider-dubbo"></dubbo:application>
-    
-     // 暴露的服务接口 - > ref指向实例化对象   
- 	<dubbo:service id="demoService" interface="com.example.dubboprovider.service.DemoService" ref="defaultService">
-    </dubbo:service>
-
-	// 实例化的对象
-    <bean id="defaultService" class="com.example.dubboprovider.service.DefaultService"/>
-
-</beans>
-```
-
-2) comsumer.xml
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:dubbo="http://dubbo.apache.org/schema/dubbo"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
-		http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd
-		http://code.alibabatech.com/schema/dubbo http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
-
-	// 注册地址
-    <dubbo:registry address="zookeeper://47.93.251.248:2181"></dubbo:registry>
-
-    // 应用名
-    <dubbo:application name="consumer-dubbo"></dubbo:application>
-
-    // 引用服务
-    <dubbo:reference id="demoService" check="false" interface="com.example.dubboprovider.service.DemoService">
-        <dubbo:method name="sayName" timeout="1000">
-        </dubbo:method>
-    </dubbo:reference>
-
-</beans>
-```
-
-3 ) Provider测试类
+目前 dubbo 2.7.X 默认是使用的 Netflix提供的[curator](https://github.com/apache/curator)  写的zk的客户端. 所以根据需求来.  所以必须整这个依赖. 
 
 ```java
-public class Provider {
-
-    public static void main(String[] args) throws IOException {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("classpath:/dubbo/provider.xml");
-
-        context.start();
-        
-        System.out.println("--------------------- -  provider server  start");
-
-        System.in.read();
-    }
-}
-```
-
-4) Consumer测试类
-
-```java
-public class Consumer {
-    public static void main(String[] args) throws Exception {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"classpath:/dubbo/consumer.xml"});
-        context.start();
-        // 所以Dubbo直接将自己的Bean直接注入到了Spring中 , 很方便的
-        DemoService  demoService = (DemoService ) context.getBean("demoService");
-        // Executing remote methods
-        String s = demoService.sayName("1");
-        System.out.println(s);
-    }
-}
-```
-
-
-
-## 5. Spring-Boot 整合
-
-> ​	Dubbo 对外提供的注解 `@Service` 已经帮我们实例化了 , 不需要再次使用`@Component`了, 但是当你服务内部引用的时候注意`@Autowired` 需要引用他的接口类或者实现类 , 比如 `@Autowired  # DemoService` , 但是如果你又多个接口的实现类的时候,就需要导入实现类了`@Autowired  # DefaultService`
-
-### 1. 快速开始
-
-> ​	注意如果你是使用了Apache的 `dubbo-spring-boot-starter` , 里面是没有zookeeper的依赖的,还有需要zk客户端3.5以上
-
-> ​	我下面提供的这个是 com.alibaba.boot 的依赖 , 直接导入一个就可以直接使用了 
-
-主要依赖 , 各个模块都需要
-
-```xml
 <dependency>
-    <groupId>com.alibaba.boot</groupId>
-    <artifactId>dubbo-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
+    <groupId>org.apache.zookeeper</groupId>
+    <artifactId>zookeeper</artifactId>
+    // 根据你客户端版本走. 所以下面要排除客户端依赖.
+    <version>3.4.10</version>
 </dependency>
-
-自带了 zookeeper 和 dubbo的包这个玩意
-```
-
-接口实现有所改变 ,注意这个`Service` 标签的含义是我们上面所说的 Dubbo对象唯一的引用实例 , 与SpringBoot的Service注解不一样的.
-
-```java
-@Service(version = "${demo.service.version}")
-public class DefaultService implements DemoService {
-
-    @Value("${demo.service.name}")
-    private String serviceName;
-
-    public String sayName(String name) {
-        // 全局对象
-        RpcContext rpcContext = RpcContext.getContext();
-        return String.format("Service [name :%s , port : %d] %s(\"%s\") : Hello,%s",
-                serviceName,
-                rpcContext.getLocalPort(),
-                rpcContext.getMethodName(),
-                name,
-                name);
-    }
-}
-```
-
-服务方的配置  `dubbo/provider-config.properties`
-
-```properties
-## application
-dubbo.application.name = dubbo-provider-demo
-
-## Nacos registry address
-dubbo.registry.address = zookeeper://47.93.251.248:2181
-
-## Dubbo Protocol
-dubbo.protocol.name = dubbo
-dubbo.protocol.port = -1
-
-# Provider @Service version
-demo.service.version=1.0.0
-demo.service.name = demoService
-```
-
-服务启动类
-
-```java
-// spring 自动注入模式 ,其实类似于引入一个config类
-@EnableDubbo(scanBasePackages = {"com.example.dubboprovider.service"})
-@PropertySource(value = "classpath:/dubbo/provider-config.properties")
-public class DubboProviderApplication {
-
-    public static void main(String[] args) throws IOException {
-        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
-        // 注册 
-        context.register(DubboProviderApplication.class);
-        // 刷新 . 必须刷新
-        context.refresh();
-        
-        System.out.println("DemoService provider is starting...");
-        System.in.read();
-    }
-}
-```
-
-
-
-消费者配置
-
-```properties
-## Dubbo Application info
-dubbo.application.name = dubbo-consumer
-
-## Nacos registry address
-dubbo.registry.address = zookeeper://47.93.251.248:2181
-
-
-# @Reference version
-demo.service.version= 1.0.0
-```
-
-
-
-消费者启动类
-
-```java
-@EnableDubbo(scanBasePackages = {"com.example.dubboprovider.service"})
-@PropertySource(value = "classpath:/dubbo/consumer-config.properties")
-public class DubboConsumerApplication {
-
-    @Reference(version = "${demo.service.version}")
-    private DemoService demoService;
-
-    @PostConstruct
-    public void init() {
-        for (int i = 0; i < 10; i++) {
-            System.out.println(demoService.sayName(" Dubbo"));
-        }
-    }
-
-    public static void main(String[] args) throws IOException {
-        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
-        context.register(DubboConsumerApplication.class);
-        context.refresh();
-        context.close();
-    }
-}
-```
-
-输出 
-
-```java
-20:15:01.480 [DubboClientHandler-192.168.28.1:20880-thread-1] DEBUG com.alibaba.dubbo.remoting.transport.DecodeHandler -  [DUBBO] Decode decodeable message com.alibaba.dubbo.rpc.protocol.dubbo.DecodeableRpcResult, dubbo version: 2.6.2, current host: 192.168.28.1
-Service [name :demoService , port : 20880] sayName(" Dubbo") : Hello, Dubbo
-
-20:15:01.484 [DubboClientHandler-192.168.28.1:20880-thread-1] DEBUG com.alibaba.dubbo.remoting.transport.DecodeHandler -  [DUBBO] Decode decodeable message com.alibaba.dubbo.rpc.protocol.dubbo.DecodeableRpcResult, dubbo version: 2.6.2, current host: 192.168.28.1
-Service [name :demoService , port : 20880] sayName(" Dubbo") : Hello, Dubbo
-```
-
-
-
-### 2. 问题
-
-比如说我将 Reference 实现一个@Method , 此时会出现失效的事情, sayName方法并没有执行里面的约束
-
-```java
-@Reference(version = "${demo.service.version}",methods = {
-        @Method(name="sayName",loadbalance = "consistenthash",timeout = 500)
-})
-private DemoService demoService;
-```
-
-如何解决呢 ?  只能采用这种方式了 .............. 因为这个parameter会在URL中添加参数
-
-```java
-@Reference(version = "${demo.service.version}", parameters = {
-        "sayName.timeout", "1000", "sayName.loadbalance", "consistenthash"
-})
-private DemoService demoService;
-```
-
-
-
-
-
-
-
-## 6. Apache - Dubbo依赖
-
-如果你的zookeeper版本低于3.5.X 需要将它排除在外
-
-```java
-  <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-spring-boot-starter</artifactId>
-            <version>2.7.3</version>
-        </dependency>
-
-        <dependency>
+<dependency>
+    <groupId>org.apache.curator</groupId>
+    <artifactId>curator-recipes</artifactId>
+    <version>4.0.1</version>
+    <exclusions>
+        <exclusion>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.4.10</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.curator</groupId>
-            <artifactId>curator-recipes</artifactId>
-            <version>4.0.1</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.zookeeper</groupId>
-                    <artifactId>zookeeper</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-    </dependencies>
+        </exclusion>
+    </exclusions>
+</dependency>
+</dependencies>
 ```
 
 
 
-还要注意的是  Dubbo的QOS 服务
+加入注册中心. 
 
 ```java
+serviceConfig.setRegistry(new RegistryConfig("zookeeper://192.168.58.131:2181?client=curator"));
 
+referenceConfig.setRegistry(new RegistryConfig("zookeeper://192.168.58.131:2181?client=curator"));
 ```
+
+此时就可以愉快的使用了. 
+
+
+
+
+
+## 
+
+
+
+
+
+
 

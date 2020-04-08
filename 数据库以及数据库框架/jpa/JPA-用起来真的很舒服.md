@@ -10,15 +10,11 @@
 >
 > Spring + Hibernate 常常被称为 Java Web 应用人气最旺的框架组合。
 
-
-
 所以JPA是规范 , Hibernate是实现 , 如果你用了JPA , 你会爱上他的, 太方便了 , 但是他学习起来可能需要一些成本 , 掌握了你会发现比Mybatis 方便一丢丢 , 
-
-我把jpa写成jap , 注意错误
 
 ## 1. springboot - 快速开始
 
-我的版本是 2.0.4.RELEASE   springboot 版本  , 版本不一致可能出现不同的问题
+我的版本是 2.0.4.RELEASE   springboot 版本  , 版本不一致可能出现不同的问题 . 
 
 ```xml
 <dependency>
@@ -29,59 +25,50 @@
     <groupId>mysql</groupId>
     <artifactId>mysql-connector-java</artifactId>
 </dependency>
+<!-- 方便测试 -->
+<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <version>1.4.197</version>
+    <scope>test</scope>
+</dependency>
 ```
 
-springboot的配置
+springboot的配置 , 其中没必要去设置 `@EnableJpaRepositories` 注解, 默认会自动注入的.  这个是测试环境的配置文件. 
 
 ```properties
-spring.datasource.driver-class-name=com.mysql.jdbc.Driver
-spring.datasource.username=root
-spring.datasource.password=123456
-spring.datasource.url=jdbc:mysql://localhost:3306/jpa?useSSL=false
-spring.datasource.hikari.maximum-pool-size=2
+# 使用H2为了测试方便.
+spring.datasource.url=jdbc:h2:mem:jpa;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MYSQL
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.continue-on-error=false
+spring.datasource.hikari.minimum-idle=2
 
-# 展示SQL
+# 就是每次运行完清空数据. 测试环境下, 最好使用这种.
+spring.jpa.hibernate.ddl-auto=create-drop
 spring.jpa.show-sql=true
-# DDL模式
-spring.jpa.hibernate.ddl-auto=create
-# 数据库引擎
+# 修改数据库引擎.
 spring.jpa.database-platform=org.hibernate.dialect.MySQL5InnoDBDialect
 ```
 
 我们的pojo对象 , 按照规范,我们的对象应该是 `名字+Do` , 所以叫 `UserDo`
 
 ```java
-@ToString
-@Setter
-@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Data
+// name含义就是你生成表的table的名称.
+// 默认是类名. 而且这个很有用处, 最好别自定义. 自定义的话 . JSQL就得按照这个名字来了.
+// 所以一般也不加@Table注解.
 @Entity
-@Table(name = "jap_user")
 public class UserDo {
 
-    public UserDo() {
-
-    }
-    /**
-     * 用户ID
-     */
-    @Id //主键
-    @GeneratedValue(strategy = GenerationType.AUTO)//主键生成策略
-    @Column(name = "user_id")//字段名
-    private long id;
-
-
-    /**
-     * 用户名
-     */
-    @Column(name = "user_name",nullable = false)
-    private String name;
-
-
-    /**
-     * 用户性别 , 0 none 1 female ,2 male
-     */
-    @Column(name = "user_gender",nullable = false)
-    private int gender;
+    @Id
+    // 这个策略只是用与MySQL自带的那种自增策略.更多解释下文讲解.
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long userId;
+    private String username;
+    private String password;
 
 }
 ```
@@ -89,116 +76,152 @@ public class UserDo {
 mapper对象 - repository对象
 
 ```java
-@Repository
-public interface UserRepository extends JpaRepository<UserDo,Integer> {
-
+public interface UserMapper extends JpaRepository<UserDo, Long> {
+    // 后面解释为什么这么写
+    @Query(value = "select u from user u where u.userId=:userId")
+    UserDo findByUserId(Long userId);
 }
 ```
 
-启动测试
+## 2. 测试
+
+### 1. CRUD操作
 
 ```java
-UserDo userDo = new UserDo();
-userDo.setName("tom");
-repository.save(userDo);
-repository.findAll().forEach(System.out::println);
+public interface UserMapper extends JpaRepository<UserDo, Long> {
+
+    @Query(value = "select u from UserDo u where u.userId=:userId")
+    UserDo findByUserId(Long userId);
+
+
+    /**
+     * 第一必须加 @Transactional 注解, 不然报错.
+     * CUD 操作必须申明 @Modifying 注解, 不然报错 , 同时它的属性 clearAutomatically 可以帮助我们清空缓存, 最好设置为true.
+     * 这就是申明这俩的原因. 
+     */
+    @Transactional
+    @Modifying
+    @Query("delete from UserDo u where u.userId=:userId")
+    int deleteByUserId(Long userId);
+
+    @Transactional
+    @Modifying
+    @Query("update UserDo u set u.password=:password where u.userId=:userId")
+    int updateByUserId(Long userId, String password);
+}
 ```
 
-我们进入数据库查看 , 发现多了两张表
 
-```sql
-mysql> show tables;
-+--------------------+
-| Tables_in_jpa      |
-+--------------------+
-| hibernate_sequence |
-| jap_user           |
-+--------------------+
-2 rows in set (0.00 sec)
-```
 
-我们查看 jpa_user 表信息
+测试代码 : 
 
 ```java
-mysql> desc jap_user;
-+-------------+--------------+------+-----+---------+-------+
-| Field       | Type         | Null | Key | Default | Extra |
-+-------------+--------------+------+-----+---------+-------+
-| user_id     | bigint(20)   | NO   | PRI | NULL    |       |
-| user_gender | int(11)      | NO   |     | NULL    |       |
-| user_name   | varchar(255) | NO   |     | NULL    |       |
-+-------------+--------------+------+-----+---------+-------+
-3 rows in set (0.00 sec)
-```
+@FixMethodOrder(value = MethodSorters.DEFAULT)
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+public class UserMapperTest {
 
-## 2. 问题
+    @Autowired
+    private UserMapper mapper;
 
-### 1. 关于save 方法问题
-
-```java
-@Test
-public void testCRUD() {
-    UserDo userDo = new UserDo();
-    for (int x = 1; x < 10; x++) {
-        userDo.setGender(x % 2);
-        userDo.setName("tom" + x);
-        userDo.setSalary(1000 + x);
-        userRepository.save(userDo);
+    @Before
+    public void init() {
+        mapper.save(UserDo.builder().username("tom").password("123456").build());
+        mapper.save(UserDo.builder().username("tony").password("123456").build());
     }
 
-    List<UserDo> all = userRepository.findAll();
-    System.out.println("all.size() = " + all.size());
-}
-```
+    @After
+    public void drop() {
+        mapper.deleteAll();
+    }
 
-大家可以猜猜输出结果 : 
 
-```java
-all.size() = 1
-```
+    @Test
+    public void findByUserId() {
+        // 执行两次的目的是看看是否使用了缓存
+        mapper.findByUserId(1L);
+        mapper.findByUserId(1L);
+    }
 
-为什么呢 ?  我们试着打印我们每次的 UserDo  , 所以他的逻辑就是
+    @Test
+    public void deleteByUserId() {
+        mapper.deleteByUserId(2L);
+    }
 
-```java
-userDo = UserDo(id=1, name=tom1, gender=1, salary=1001.0)
-userDo = UserDo(id=1, name=tom2, gender=0, salary=1002.0)
-....
-userDo = UserDo(id=1, name=tom9, gender=1, salary=1009.0)   
-```
-
-首先由于我们主键生成策略里是自增的  , 所以他建立了一个 `hibernate_sequence` 表, 来记录主键ID , 初始化的时候是 1 , 
-
-```sql
-Hibernate: create table hibernate_sequence (next_val bigint) engine=InnoDB
-Hibernate: insert into hibernate_sequence values ( 1 )
-select next_val as id_val from hibernate_sequence for update
-update hibernate_sequence set next_val= ? where next_val=?
-insert into jap_user (user_gender, user_name, user_salary, user_id) values (?, ?, ?, ?)
-```
-
-他会在插入的时候判断是不是新对象 , 执行一些判断逻辑
-
-```java
-@Transactional
-public <S extends T> S save(S entity) {
-    // 这里会判断ID是不是0 ,是的话会走这个
-    if (entityInformation.isNew(entity)) {
-        em.persist(entity);
-        return entity;
-    } else {
-        // 不是的话走这个
-        return em.merge(entity);
+    @Test
+    public void updateByUserId() {
+        int i = mapper.updateByUserId(1L, "987654321");
+        System.out.println(i);
+        UserDo user = mapper.findByUserId(1L);
+        System.out.println(user);
     }
 }
 ```
 
-很显然`persist`是持续的意思 , persistent一样 , 就是继续吧 ,主键自增
+我把结果大致放这里. 
 
-而 `merge` 就是在原来的基础上合并的意思 ,  
+```java
+// 初始化流程 , 创建表
+Hibernate: create table user_do (user_id bigint not null auto_increment, password varchar(255), username varchar(255), primary key (user_id)) engine=InnoDB
 
-所以总结一下就是我们主键自增需要将对象的主键值设置成0, 然后就别管了 , 
 
-### 2. 关于字段属性
+// 插入语句的流程
+Hibernate: insert into user_do (password, username) values (?, ?)
+Hibernate: insert into user_do (password, username) values (?, ?)
+    
+// 删除
+Hibernate: delete from user_do where user_id=?
+    
+//查询
+Hibernate: select userdo0_.user_id as user_id1_0_, userdo0_.password as password2_0_, userdo0_.username as username3_0_ from user_do userdo0_ where userdo0_.user_id=?
+//查询
+Hibernate: select userdo0_.user_id as user_id1_0_, userdo0_.password as password2_0_, userdo0_.username as username3_0_ from user_do userdo0_ where userdo0_.user_id=?
+
+
+// 更新    
+Hibernate: update user_do set password=? where user_id=?    
+```
+
+### 2. 问题
+
+- 没有使用缓存, 
+- 插入的流程是 ,先去sequence表中, 行锁查询ID字段. 然后根据ID去插入 , 没有使用数据库自带的自增策略. 
+- 关于如何开启缓存 , 自行百度. 我觉得, 最好别从 dao层面开启缓存, 应该让我们从服务层手动写代码开启. 防止出现脏数据. 
+- 关于 为何加 `@Transactional` 此注解的原因 , 以及 `@Modifying` 的原因.  上诉介绍了
+- 关于 `@Entity` 注解的问题以及 JSQL的问题. 为何介意只使用 `@Entity` 注解, 不使用多余使用`@Table`注解呢, 
+
+因为在我们写 jsql的时候, 是根据entity 注解的标记走的.  所以, 如果你要写. table和entity的name值必须相同, 而且表名默认就是 entity的name, 也就是类名. 
+
+所以对于我上面的user对象
+
+```java
+@Entity(name = "user")
+public class UserDo {}
+```
+
+这个查询语句
+
+```sql
+@Query(value = "select u from user u where u.userId=:userId")
+UserDo findByUserId(Long userId);
+```
+
+此时就是, 使用了`user` 作为表的映射字段. 
+
+如果我们将entity的name取消掉. 如何写sql呢
+
+```java
+@Query(value = "select u from UserDo u where u.userId=:userId")
+UserDo findByUserId(Long userId);
+```
+
+就是上诉这种了, 结合这点. 所以最好别将UserDo 名字设置为这个, 最好直接是表名称最好. 
+
+为了写起来方便, 因此我将 `@Entity(name = "user")` 改为了 `@Entity` 直接. 
+
+
+
+### 3. 关于字段属性
 
 发现了什么 , int类型,默认对应的字段时int(11) , 而long类型对应的是 bigint(20)  ,然后string对应的是 varchar(255) ,
 
@@ -284,9 +307,11 @@ public class UserDo {
 }
 ```
 
+### 4. 关于主键生成策略 
 
+我这里留一篇文章 ,  [https://www.cnblogs.com/SummerinShire/p/7544897.html](https://www.cnblogs.com/SummerinShire/p/7544897.html)  , 大家自行去看, 很详细的. 
 
-
+其中很多种方式, 比如 `org.hibernate.id.factory.internal.DefaultIdentifierGeneratorFactory#DefaultIdentifierGeneratorFactory` 这个定义了很多种 . 
 
 ## 3. 基本使用
 
@@ -400,7 +425,6 @@ public UserDo(String name, int gender) {
     this.name = name;
     this.gender = gender;
 }
-
 ```
 
 其次进行改造
@@ -436,10 +460,6 @@ List<Map<String, Object>> selectByJQLMap(@Param("name") String name);
 Hibernate: select userdo0_.user_name as col_0_0_, userdo0_.user_gender as col_1_0_ from jpa_user userdo0_ where userdo0_.user_name=?
 [{myaddress=1, myname=tom3}]
 ```
-
-
-
-
 
 
 

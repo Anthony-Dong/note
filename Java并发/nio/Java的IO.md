@@ -303,26 +303,37 @@ FileChannel channel = fileInputStream.channel();
 
 > **tips**: FileChannel仅能运行在阻塞模式下，文件异步处理的 I/O 是在JDK 1.7 才被加入的 java.nio.channels.AsynchronousFileChannel
 
+一下代码是一段NIO的代码. 传统的NIO涉及到大量的空转问题. 如果不设置为nio, 那么和bio又有啥区别呢. 所以需要引入后续的selector模型. 
+
 ```java
-// 初始化
-ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-serverSocketChannel.bind(new InetSocketAddress(10086));
+public static void main(String[] args) throws IOException {
+    // 1. 初始化
+    ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+    serverSocketChannel.bind(new InetSocketAddress(10086));
+    // 2. NIO么. 必须设置为非阻塞. 也就是accept方法不会阻塞. 如果不设置,默认是 accept方法会一直阻塞到有数据返回.
+    serverSocketChannel.configureBlocking(false);
+    while (true) {
+        // 3. 去监听连接时间.
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        if (socketChannel != null) {
+            // 4.设置读写非阻塞.  如果不设置. read方法就是阻塞的.会一直等待到读取到数据.
+            socketChannel.configureBlocking(false);
 
-while (true) {
-    // 这里也是不断的阻塞,等待一个SocketChannel(1)
-    SocketChannel socketChannel = serverSocketChannel.accept();
-    ByteBuffer buffer = ByteBuffer.allocate(20);
-    // 读操作是阻塞的,读不到会一直阻塞.如果此时一个客户端连接来了,但是不发送消息,此时主线程一直阻塞在这里.(2)
-    int n = socketChannel.read(buffer);
-    System.out.printf("receive : %s\n", new String(buffer.array(), 0, n, StandardCharsets.UTF_8));
+            // 5. 那后去读取.显然这个是读取不到的.因为非阻塞下,不可能这么快操作,连接建立好,你就可以发送消息了.
+            ByteBuffer buffer = ByteBuffer.allocate(20);
+            int n = socketChannel.read(buffer);
+            System.out.printf("receive : %s\n", new String(buffer.array(), 0, n, StandardCharsets.UTF_8));
 
-    FileInputStream file = new FileInputStream("resp.text");
-    FileChannel readChannel = file.getChannel();
-    // 这里可以直接文件数据复制到NIC缓冲区(UNIX) , 叫 `sendfile`
-    readChannel.transferTo(0, readChannel.size(), socketChannel);
+            // 6. 发送消息
+            buffer.clear();
+            buffer.put(String.format("当前时间:%s.", new Date()).getBytes());
+            buffer.flip();
+            socketChannel.write(buffer);
 
-    // 释放资源
-    close();
+            // 7. 关闭连接
+            socketChannel.close();
+        }
+    }
 }
 ```
 
@@ -362,23 +373,25 @@ Selector selector = Selector.open();
 // 开启一个ServerSocketChannel
 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
 serverSocketChannel.bind(new InetSocketAddress(10086));
-// 配置通道为非阻塞模式
+// 配置通道为非阻塞模式,也就是accept方法不阻塞了. 
 serverSocketChannel.configureBlocking(false);
 
 // 注册服务端的socket-accept事件 , 代表的意思就是监听ServerSocketChannel的accept事件
 serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-// 死循环
+// 死循环,不断轮询
 while (true) {
-    // 这个地方是一个网络模型, 有select,poll,epoll.默认并不是epoll.需要引入我下面图片有.
-    // selector.select()会一直阻塞，直到有channel相关操作就绪
+    // 这个地方是一个网络模型, 有select,poll,epoll.默认并不是epoll,而是selector,需要引入epoll看我下面图片有. selector模型其实是一种 reactor模型. 对于操作系统来说, 他作为一个发布者. 而我们作为一个订阅者. 去订阅相关的事件. 当我们调用 select方法会返回给我们具体相应的事件.这种模式其实也并不是传统的reactor模型.可以避免reactor模型中的背压现象(有点像生产者,消费者模型).
+    // selector.select()会一直阻塞，直到有channel相关操作就绪 .同时可能出现NIO的BUG.自行百度. 解决方案有很多.
     selector.select();
+    
     // SelectionKey关联的channel都有就绪事件
     Iterator<SelectionKey> keyIterator = selector.selectedKeys().iterator();
 
+    // 遍历.
     while (keyIterator.hasNext()) {
         SelectionKey key = keyIterator.next();
-        // 服务端socket-accept
+        // 服务端socket-accept, 这里如果通过, 那么accept一定拿到了对象.不会出现空指针.
         if (key.isAcceptable()) {
             // 获取客户端连接的channel,由于此时已经监听到连接事件,所以不会阻塞
             SocketChannel clientSocketChannel = serverSocketChannel.accept();
@@ -421,7 +434,7 @@ while (true) {
             }
         }
         // Selector不会自己从已selectedKeys中移除SelectionKey实例
-        // 必须在处理完通道时自己移除 下次该channel变成就绪时，Selector会再次将其放入selectedKeys中
+        // 必须在处理完通道时自己移除,其实就是释放内存.
         keyIterator.remove();
     }
 }
@@ -432,6 +445,10 @@ while (true) {
 关于引入epoll 多路复用模型  , 就是一下参数了. 
 
 ![](https://tyut.oss-accelerate.aliyuncs.com/image/2020-20-22/594b080f-b042-4756-a362-b7120ff0436d.png)
+
+关于NIO的BUG , 我[这篇文章](https://anthony-dong.gitee.io/post/y9LbqHqhJ/)里写了, 如何解决此问题 :  [https://anthony-dong.gitee.io/post/y9LbqHqhJ/](https://anthony-dong.gitee.io/post/y9LbqHqhJ/)
+
+深入理解上诉的两段代码 ,对你的NIO模型的理解有很大的帮助. 
 
 ## 高性能I/O优化
 
