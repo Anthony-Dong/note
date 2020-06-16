@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>Document</title>
+  <script>
+    function ajax(obj) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('get', obj.url, true);
+      xhr.setRequestHeader(":authority", "avoscloud.com");
+      xhr.setRequestHeader(":method", "GET");
+      xhr.setRequestHeader(":path", "/1.1/classes/Comment?where=%7B%22%24or%22%3A%5B%7B%22rid%22%3A%7B%22%24exists%22%3Afalse%7D%7D%2C%7B%22rid%22%3A%22%22%7D%5D%2C%22url%22%3A%22%2Fpost%2FYVlL69JfN%2F%22%7D&order=-createdAt%2C-insertedAt&limit=0&count=1");
+      xhr.setRequestHeader(":scheme", "https");
+      xhr.setRequestHeader("accept", "*/*");
+      xhr.setRequestHeader("content-type", "application/json;charset=UTF-8");
+      xhr.setRequestHeader("x-lc-id", "Q2bHyXTTgsOb8xLvM5alr0Ma-gzGzoHsz");
+      xhr.setRequestHeader("x-lc-sign", "b5d619fb8196154c4a7809d8042cde38,1586086603248");
+      xhr.setRequestHeader("x-lc-ua", "LeanCloud-JS-SDK/4.5.3 (Browser)");
+      xhr.setRequestHeader("x-lc-session", "ce5slwkczzkfgxf88l9huptar");
+      xhr.send(null);
+      xhr.onreadystatechange = function () {
+        //异步请求：响应状态为4，数据加载完毕
+        if (xhr.readyState == 4)
+          callback();
+      }
+
+      function callback() {
+        if (xhr.status == 200) {
+          obj.success(xhr.responseText);
+        } else {
+          obj.error(xhr.status);
+        }
+      }
+    }
+    var obj = {
+      "url": "https://avoscloud.com/1.1/classes/Commentwhere=%7B%22%24or%22%3A%5B%7B%22rid%22%3A%7B%22%24exists%22%3Afalse%7D%7D%2C%7B%22rid%22%3A%22%22%7D%5D%2C%22url%22%3A%22%2Fpost%2FYVlL69JfN%2F%22%7D&order=-createdAt%2C-insertedAt&limit=0&count=1"
+    }
+
+    window.onload=function(){
+      ajax(obj)
+    }
+  </script>
+</head>
+
+<body>
+
+</body>
+
+</html>
