@@ -1,27 +1,34 @@
 # Flink 入门 学习
 
-入门教程：
+入门教程：wordCount
 
 ```java
-public static void test() throws Exception {
-    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    env.socketTextStream("", 8888).flatMap(new FlatMapFunction<String, Tuple2<String, Integer>>() {
+private StreamExecutionEnvironment env;
+
+@Before
+public void init() {
+    env = StreamExecutionEnvironment.getExecutionEnvironment();
+}
+@Test
+public void testWordCount1() throws Exception {
+    DataStreamSource<String> source = env.socketTextStream("localhost", 9999);
+    source.flatMap(new RichFlatMapFunction<String, Tuple2<String, Integer>>() {
         @Override
         public void flatMap(String value, Collector<Tuple2<String, Integer>> out) throws Exception {
-            String[] split = value.split("");
+            String[] split = value.split(" ");
             for (String s : split) {
-                out.collect(new Tuple2<>(s, 1));
+                out.collect(Tuple2.of(s, 1));
             }
         }
     }).keyBy(0).sum(1).print();
-    env.execute("word count");
+    env.execute("testWordCount1");
 }
 ```
 
 执行脚本:
 
 ```shell
-nc -l 8888
+nc -l 9999
 ```
 
 
@@ -312,6 +319,8 @@ run context : org.apache.flink.streaming.api.operators.StreamSourceContexts$NonT
 
 #### 1、简单合并
 
+> ​	并行处理多个流，可以使用简单合并。
+
 ```java
 public static void test() throws Exception {
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -340,6 +349,90 @@ public static void test() throws Exception {
 
 
 #### 2、广播合并
+
+> ​	多利用boardcase的思想，去分发信息，多用于配置场景。
+
+```java
+@Test
+public void testBroadcast() throws Exception {
+    DataStreamSource<String> source1 = environment.addSource(new RichParallelSourceFunction<String>() {
+        @Override
+        public void run(SourceContext<String> ctx) throws Exception {
+            while (true) {
+                ctx.collect("=========");
+                TimeUnit.MILLISECONDS.sleep(100);
+            }
+        }
+
+        @Override
+        public void cancel() {
+
+        }
+    }).setParallelism(8);
+
+    DataStream<String> source2 = environment.addSource(new RichParallelSourceFunction<String>() {
+        @Override
+        public void run(SourceContext<String> ctx) throws Exception {
+            while (true) {
+                ctx.collect(new Random().nextInt(100) + "");
+                TimeUnit.SECONDS.sleep(1);
+                System.out.println("refresh");
+            }
+        }
+
+        @Override
+        public void cancel() {
+
+        }
+    }).setParallelism(1).broadcast();
+
+
+    source1.connect(source2).flatMap(new CoFlatMapFunction<String, String, String>() {
+        String config;
+
+        @Override
+        public void flatMap1(String value, Collector<String> out) throws Exception {
+            System.out.println(String.format("process [%s] config %s", Thread.currentThread().getName(), config));
+        }
+
+        @Override
+        public void flatMap2(String value, Collector<String> out) throws Exception {
+            this.config = value;
+        }
+    }).addSink(new SinkFunction<String>() {
+        @Override
+        public void invoke(String value, Context context) throws Exception {
+
+        }
+    });
+    environment.execute("");
+}
+```
+
+我们可以get到，只需要broadcast一个方法，就可以实现配置的分发。
+
+```go
+process [Co-Flat Map -> Sink: Unnamed (1/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (2/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (3/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (6/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (4/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (5/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (7/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (8/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (6/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (3/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (2/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (1/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (4/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (5/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (7/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (8/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (3/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (6/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (2/8)] config 18
+process [Co-Flat Map -> Sink: Unnamed (1/8)] config 18
+```
 
 
 
@@ -479,19 +572,52 @@ public void testKeyBy() throws Exception {
 
 
 
-## TimeCharacteristic
+## watermark 水印 和 time
 
 ```java
 env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 ```
 
+event介绍 https://cloud.tencent.com/developer/article/1373594	
+
+waterMark介绍 https://www.jianshu.com/p/9db56f81fa2a  ，https://developer.aliyun.com/article/682873
+
+主要是讲的，处理时间的概念，flink会根据不同维度的时间去计算。 当设置eventTime，用户必须去设置一个拿到time的一个方法，但是有个问题就是用户的数据，可能比如a的时间搓1s,b是2s，我们的统计维度是2s统计一次。但是由于网路延迟，b拿到的时候已经是3s了，这时候就需要一个watermark，只有当 watermark>windows_end_time，才回去聚合。其实也就是一个容错的机制。 具体容错事件根据真实情况设置。
+
+写法如下：
+
+```java
+  StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+  // 设置自定义的时间搓属性
+  env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+  // 添加kafka  source
+  FlinkKafkaConsumer011<EventLog> consumer = new FlinkKafkaConsumer011<>(KafkaProducer.topic, new EventLogSer(), getKafkaSourceProperties());
+  DataStreamSource<EventLog> streamSource = env.addSource(consumer);
+  // water mark,容错是100s
+  streamSource.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<EventLog>(Time.of(100, TimeUnit.MILLISECONDS)) {
+      @Override
+      public long extractTimestamp(EventLog element) {
+          // 以日志的上面记录的时间为窗口计算维度
+          return element.time;
+      }
+      // 聚合数量需要做转换
+  }).map(new MapFunction<EventLog, Tuple1<Integer>>() {
+      @Override
+      public Tuple1<Integer> map(EventLog value) throws Exception {
+          return new Tuple1<>(1);
+      }
+  }).timeWindowAll(Time.seconds(1)).sum(0).print();
+```
+
+![](https://img-blog.csdn.net/20160929172201717)
 
 
-https://cloud.tencent.com/developer/article/1373594	
 
-
+watermark有两类：完美式（perfect）watermark和启发式（heuristic）watermark。
 
 ## 窗口的概念
+
+这里有一篇文章推荐一下：https://juejin.im/post/5ee090cd6fb9a047d564685b
 
 看看下面两段代码
 
@@ -561,7 +687,7 @@ streamSource.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExt
 }).timeWindowAll(Time.seconds(1)).sum(0).print();
 ```
 
-\
+这个就是一个 
 
 
 
@@ -569,5 +695,334 @@ streamSource.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExt
 
 https://juejin.im/post/5e7a13915188255e245ec12a
 
+state 的维度有两个，一个是task级别（我测试测试不通），一个是key级别。
+
+### 1、task 级别
+
+```java
+org.apache.flink.runtime.JobException: Recovery is suppressed by NoRestartBackoffTimeStrategy
+	at org.apache.flink.runtime.executiongraph.failover.flip1.ExecutionFailureHandler.handleFailure(ExecutionFailureHandler.java:110)
+	at org.apache.flink.runtime.executiongraph.failover.flip1.ExecutionFailureHandler.getFailureHandlingResult(ExecutionFailureHandler.java:76)
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.handleTaskFailure(DefaultScheduler.java:192)
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.maybeHandleTaskFailure(DefaultScheduler.java:186)
+	at org.apache.flink.runtime.scheduler.DefaultScheduler.updateTaskExecutionStateInternal(DefaultScheduler.java:180)
+	at org.apache.flink.runtime.scheduler.SchedulerBase.updateTaskExecutionState(SchedulerBase.java:484)
+	at org.apache.flink.runtime.jobmaster.JobMaster.updateTaskExecutionState(JobMaster.java:380)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	at org.apache.flink.runtime.rpc.akka.AkkaRpcActor.handleRpcInvocation(AkkaRpcActor.java:279)
+	at org.apache.flink.runtime.rpc.akka.AkkaRpcActor.handleRpcMessage(AkkaRpcActor.java:194)
+	at org.apache.flink.runtime.rpc.akka.FencedAkkaRpcActor.handleRpcMessage(FencedAkkaRpcActor.java:74)
+	at org.apache.flink.runtime.rpc.akka.AkkaRpcActor.handleMessage(AkkaRpcActor.java:152)
+	at akka.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:26)
+	at akka.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:21)
+	at scala.PartialFunction$class.applyOrElse(PartialFunction.scala:123)
+	at akka.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:21)
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:170)
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:171)
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:171)
+	at akka.actor.Actor$class.aroundReceive(Actor.scala:517)
+	at akka.actor.AbstractActor.aroundReceive(AbstractActor.scala:225)
+	at akka.actor.ActorCell.receiveMessage(ActorCell.scala:592)
+	at akka.actor.ActorCell.invoke(ActorCell.scala:561)
+	at akka.dispatch.Mailbox.processMailbox(Mailbox.scala:258)
+	at akka.dispatch.Mailbox.run(Mailbox.scala:225)
+	at akka.dispatch.Mailbox.exec(Mailbox.scala:235)
+	at akka.dispatch.forkjoin.ForkJoinTask.doExec(ForkJoinTask.java:260)
+	at akka.dispatch.forkjoin.ForkJoinPool$WorkQueue.runTask(ForkJoinPool.java:1339)
+	at akka.dispatch.forkjoin.ForkJoinPool.runWorker(ForkJoinPool.java:1979)
+	at akka.dispatch.forkjoin.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:107)
+Caused by: java.lang.NullPointerException: Keyed state can only be used on a 'keyed stream', i.e., after a 'keyBy()' operation. // 核心的一点就是 keyed state must after keyby op
+	at org.apache.flink.util.Preconditions.checkNotNull(Preconditions.java:75)
+	at org.apache.flink.streaming.api.operators.StreamingRuntimeContext.checkPreconditionsAndGetKeyedStateStore(StreamingRuntimeContext.java:185)
+	at org.apache.flink.streaming.api.operators.StreamingRuntimeContext.getState(StreamingRuntimeContext.java:142)
+	at state.StateDemo$1.open(StateDemo.java:39)
+	at org.apache.flink.api.common.functions.util.FunctionUtils.openFunction(FunctionUtils.java:36)
+	at org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator.open(AbstractUdfStreamOperator.java:102)
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.initializeStateAndOpen(StreamTask.java:1007)
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.lambda$beforeInvoke$0(StreamTask.java:454)
+	at org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor$SynchronizedStreamTaskActionExecutor.runThrowing(StreamTaskActionExecutor.java:94)
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.beforeInvoke(StreamTask.java:449)
+	at org.apache.flink.streaming.runtime.tasks.StreamTask.invoke(StreamTask.java:461)
+	at org.apache.flink.runtime.taskmanager.Task.doRun(Task.java:707)
+	at org.apache.flink.runtime.taskmanager.Task.run(Task.java:532)
+	at java.lang.Thread.run(Thread.java:748)
+```
+
+### 2、key级别
+
+其实state很好理解，就是存储一个上下文，以一个key为聚合，这个上下文的数据结构，就是以下这几个key的特点。keyed state 记录的是每个key的状态，Keyed state托管状态有六种类型：
+
+1. ValueState
+2. ListState
+3. MapState
+4. ReducingState
+5. AggregatingState
+6. FoldingState
+
+我这里介绍一下，最简单的ValueState，其实就是仅仅一个状态值 ：
+
+下面这个demo就是统计，每一个分区的处理数量，聚合维度是key ， 代码很简单。
 
 
+
+```java
+private StreamExecutionEnvironment env;
+
+@Before
+public void init() {
+    env = StreamExecutionEnvironment.getExecutionEnvironment();
+}
+
+@Test
+public void testKeyState() throws Exception {
+    env.addSource(new ParallelSourceFunction<String>() {
+        private Random random = new Random();
+
+        @Override
+        public void run(SourceContext<String> ctx) throws Exception {
+            while (true) {
+                // 分成了10个分区
+                int count = random.nextInt(5);
+                ctx.collect(count + ",content");
+                TimeUnit.MILLISECONDS.sleep(100);
+            }
+        }
+
+        @Override
+        public void cancel() {
+        }
+    }).setParallelism(8).keyBy(new KeySelector<String, Integer>() {
+        @Override
+        public Integer getKey(String value) throws Exception {
+            String[] split = value.split(",");
+            // 以 0，1，2，3，4 为key 操作，也就是类似于kafka的分区策略
+            return Integer.parseInt(split[0]);
+        }
+    }).flatMap(new RichFlatMapFunction<String, Integer>() {
+        private ValueState<Integer> state;
+        @Override
+        public void open(Configuration parameters) throws Exception {
+            super.open(parameters);
+            ValueStateDescriptor<Integer> descriptor = new ValueStateDescriptor<Integer>("key", Integer.class);
+            state = getRuntimeContext().getState(descriptor);
+        }
+
+        @Override
+        public void flatMap(String value, Collector<Integer> out) throws Exception {
+            Integer count = state.value();
+            if (count == null) {
+                count = 0;
+            }
+            System.out.printf("[%s]%s\n", Thread.currentThread().getName(), value);
+            count++;
+            state.update(count);
+            out.collect(count);
+        }
+    }).print();
+    env.execute("testKeyState");
+}
+```
+
+主要是看输出
+
+```java
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 1
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 2
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 3
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 4
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 5
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 6
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 7
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content // 这里是8
+8> 8
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 1
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 2
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 3
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 4
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 5
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 6
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 7
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 8
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 9
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 10
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 11
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 12
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 13
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 14
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 15
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 16
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 1
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 2
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 3
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 4
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 5
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 6
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 7
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 8
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 17
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 18
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 19
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 20
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 21
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 22
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 23
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 24
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 1
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 2
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 3
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 4
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 5
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 6
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 7
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 8
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 9
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 10
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 11
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 12
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 13
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 14
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 15
+[Flat Map -> Sink: Print to Std. Out (8/8)]2,content
+8> 16
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 9
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 10
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 11
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 12
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 13
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 14
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 15
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 16
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content // 下一次出现的位置，这里是9，所以成功拿到状态。
+8> 9
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 10
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 11
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 12
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 13
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 14
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 15
+[Flat Map -> Sink: Print to Std. Out (8/8)]3,content
+8> 16
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 25
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 26
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 27
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 28
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 29
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 30
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 31
+[Flat Map -> Sink: Print to Std. Out (6/8)]0,content
+6> 32
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 17
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 18
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 19
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 20
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 21
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 22
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 23
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 24
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 25
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 26
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 27
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 28
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 29
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 30
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 31
+[Flat Map -> Sink: Print to Std. Out (6/8)]1,content
+6> 32
+```
+
+
+
+其实测试结果，还发现一个问题就是，每一个key都是绑定一个线程的，可能是方便聚合。
