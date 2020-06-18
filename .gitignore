@@ -1,2 +1,8 @@
 *.js
-JavaScript/js练习/
+*.css
+*.cpp
+*.c
+*.java
+*.class
+*.html
+/firm
